@@ -1,0 +1,36 @@
+{
+  "task_id": "bq_005",
+  "category": "bigquery_sql",
+  "description": "Deduplicate event records that may arrive multiple times due to at-least-once delivery. For each (user_id, event_name, session_id) group, keep only the first occurrence by event_timestamp. If two events have identical timestamps, break ties by event_id (lower wins). The output should preserve all original columns. Output columns: all columns from the events table.",
+  "schema": {
+    "raw_events": {
+      "columns": {
+        "event_id": {"type": "INT64", "description": "Primary key (auto-increment, not guaranteed unique across replays)"},
+        "user_id": {"type": "INT64", "description": "User identifier"},
+        "session_id": {"type": "STRING", "description": "Session identifier"},
+        "event_name": {"type": "STRING", "description": "Event type"},
+        "event_timestamp": {"type": "TIMESTAMP", "description": "UTC timestamp"},
+        "properties": {"type": "JSON", "description": "Event properties as JSON"},
+        "ingestion_timestamp": {"type": "TIMESTAMP", "description": "When this record was ingested (may differ from event_timestamp)"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "raw_events", "rows": [
+      {"event_id": 1, "user_id": 300, "session_id": "sess_a", "event_name": "click", "event_timestamp": "2025-02-01T10:00:00Z", "properties": "{\"button\": \"buy\"}", "ingestion_timestamp": "2025-02-01T10:00:05Z"},
+      {"event_id": 5, "user_id": 300, "session_id": "sess_a", "event_name": "click", "event_timestamp": "2025-02-01T10:00:00Z", "properties": "{\"button\": \"buy\"}", "ingestion_timestamp": "2025-02-01T10:05:00Z"},
+      {"event_id": 2, "user_id": 300, "session_id": "sess_a", "event_name": "page_view", "event_timestamp": "2025-02-01T09:59:00Z", "properties": "{}", "ingestion_timestamp": "2025-02-01T09:59:05Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"event_id": 2, "user_id": 300, "session_id": "sess_a", "event_name": "page_view", "event_timestamp": "2025-02-01T09:59:00Z"},
+    {"event_id": 1, "user_id": 300, "session_id": "sess_a", "event_name": "click", "event_timestamp": "2025-02-01T10:00:00Z"}
+  ],
+  "edge_cases": [
+    "Identical timestamps requiring tie-breaking by event_id",
+    "Same event delivered 3+ times",
+    "Different properties for same logical event (take the first by timestamp/event_id)",
+    "NULL session_id (should be treated as a distinct group)"
+  ],
+  "common_failure_modes": ["FM3: Using DISTINCT instead of ROW_NUMBER partitioning", "FM5: Not handling NULL session_id in partition"]
+}

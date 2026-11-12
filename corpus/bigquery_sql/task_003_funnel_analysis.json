@@ -1,0 +1,40 @@
+{
+  "task_id": "bq_003",
+  "category": "bigquery_sql",
+  "description": "Build a conversion funnel for the online store website. Track users through four steps: page_view -> add_to_cart -> begin_checkout -> purchase. Each step must occur within the same session_id, and steps must be ordered by event_timestamp. A user can complete the funnel multiple times across different sessions but should be counted once per session. Output columns: step_name (STRING), step_number (INT64), unique_sessions (INT64), conversion_rate_from_previous (FLOAT64).",
+  "schema": {
+    "events": {
+      "columns": {
+        "event_id": {"type": "INT64", "description": "Primary key"},
+        "user_id": {"type": "INT64", "description": "User identifier"},
+        "session_id": {"type": "STRING", "description": "Session identifier"},
+        "event_name": {"type": "STRING", "description": "Event type: page_view, add_to_cart, begin_checkout, purchase"},
+        "event_timestamp": {"type": "TIMESTAMP", "description": "UTC timestamp of the event"},
+        "page_url": {"type": "STRING", "description": "Page URL where event occurred"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "events", "rows": [
+      {"event_id": 1, "user_id": 200, "session_id": "s1", "event_name": "page_view", "event_timestamp": "2025-03-01T10:00:00Z", "page_url": "/products"},
+      {"event_id": 2, "user_id": 200, "session_id": "s1", "event_name": "add_to_cart", "event_timestamp": "2025-03-01T10:05:00Z", "page_url": "/products/42"},
+      {"event_id": 3, "user_id": 200, "session_id": "s1", "event_name": "begin_checkout", "event_timestamp": "2025-03-01T10:10:00Z", "page_url": "/checkout"},
+      {"event_id": 4, "user_id": 200, "session_id": "s1", "event_name": "purchase", "event_timestamp": "2025-03-01T10:15:00Z", "page_url": "/confirmation"},
+      {"event_id": 5, "user_id": 201, "session_id": "s2", "event_name": "page_view", "event_timestamp": "2025-03-01T11:00:00Z", "page_url": "/products"},
+      {"event_id": 6, "user_id": 201, "session_id": "s2", "event_name": "add_to_cart", "event_timestamp": "2025-03-01T11:05:00Z", "page_url": "/products/7"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"step_name": "page_view", "step_number": 1, "unique_sessions": 2, "conversion_rate_from_previous": 1.0},
+    {"step_name": "add_to_cart", "step_number": 2, "unique_sessions": 2, "conversion_rate_from_previous": 1.0},
+    {"step_name": "begin_checkout", "step_number": 3, "unique_sessions": 1, "conversion_rate_from_previous": 0.5},
+    {"step_name": "purchase", "step_number": 4, "unique_sessions": 1, "conversion_rate_from_previous": 1.0}
+  ],
+  "edge_cases": [
+    "Out-of-order events within a session (must enforce temporal ordering)",
+    "Duplicate events (same event_name twice in one session)",
+    "Sessions with partial funnels (drop off at any step)",
+    "Multiple purchases in one session"
+  ],
+  "common_failure_modes": ["FM3: Counting user_id instead of session_id", "FM2: Not enforcing temporal order"]
+}

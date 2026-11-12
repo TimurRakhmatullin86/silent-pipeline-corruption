@@ -1,0 +1,33 @@
+{
+  "task_id": "bq_002",
+  "category": "bigquery_sql",
+  "description": "Calculate weekly cohort retention for the online store. A user's cohort is defined by the week (Monday-based) of their first order. For each cohort week and each subsequent week offset (0, 1, 2, ..., 12), compute the number of distinct users who placed at least one order. Output columns: cohort_week (DATE), week_offset (INT64), retained_users (INT64), retention_rate (FLOAT64).",
+  "schema": {
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "customer_id": {"type": "INT64", "description": "Foreign key to customers"},
+        "order_date": {"type": "TIMESTAMP", "description": "UTC timestamp of order placement"},
+        "status": {"type": "STRING", "description": "Order status: pending, completed, cancelled, refunded"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "orders", "rows": [
+      {"order_id": 1, "customer_id": 100, "order_date": "2025-01-06T10:00:00Z", "status": "completed"},
+      {"order_id": 2, "customer_id": 100, "order_date": "2025-01-13T11:00:00Z", "status": "completed"},
+      {"order_id": 3, "customer_id": 101, "order_date": "2025-01-06T12:00:00Z", "status": "completed"},
+      {"order_id": 4, "customer_id": 101, "order_date": "2025-01-27T09:00:00Z", "status": "cancelled"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"cohort_week": "2025-01-06", "week_offset": 0, "retained_users": 2, "retention_rate": 1.0},
+    {"cohort_week": "2025-01-06", "week_offset": 1, "retained_users": 1, "retention_rate": 0.5}
+  ],
+  "edge_cases": [
+    "Cancelled orders: should they count for retention? (Yes - user was active)",
+    "Users with orders on cohort boundary (Sunday 23:59 UTC vs Monday 00:00 UTC)",
+    "Empty cohort weeks (no new users that week)"
+  ],
+  "common_failure_modes": ["FM2: DATE_TRUNC week boundary off-by-one", "FM3: DISTINCT customer_id missing"]
+}

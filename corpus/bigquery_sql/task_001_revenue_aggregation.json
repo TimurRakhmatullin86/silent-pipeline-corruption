@@ -1,0 +1,62 @@
+{
+  "task_id": "bq_001",
+  "category": "bigquery_sql",
+  "description": "Calculate monthly revenue by product category for the online store. Revenue should be computed as the sum of (unit_price * quantity) for completed orders only (status = 'completed'). Each order may have multiple payment attempts; use only the successful payment (status = 'success') to avoid double-counting. Output columns: month (DATE), category (STRING), total_revenue (FLOAT64), order_count (INT64).",
+  "schema": {
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "customer_id": {"type": "INT64", "description": "Foreign key to customers"},
+        "order_date": {"type": "TIMESTAMP", "description": "UTC timestamp of order placement"},
+        "status": {"type": "STRING", "description": "Order status: pending, completed, cancelled, refunded"}
+      }
+    },
+    "order_items": {
+      "columns": {
+        "item_id": {"type": "INT64", "description": "Primary key"},
+        "order_id": {"type": "INT64", "description": "Foreign key to orders"},
+        "product_id": {"type": "INT64", "description": "Foreign key to products"},
+        "quantity": {"type": "INT64", "description": "Quantity ordered"},
+        "unit_price": {"type": "FLOAT64", "description": "Price per unit at time of order"}
+      }
+    },
+    "products": {
+      "columns": {
+        "product_id": {"type": "INT64", "description": "Primary key"},
+        "product_name": {"type": "STRING", "description": "Product display name"},
+        "category": {"type": "STRING", "description": "Product category"}
+      }
+    },
+    "payments": {
+      "columns": {
+        "payment_id": {"type": "INT64", "description": "Primary key"},
+        "order_id": {"type": "INT64", "description": "Foreign key to orders. Multiple payment attempts per order are possible."},
+        "amount": {"type": "FLOAT64", "description": "Payment amount"},
+        "status": {"type": "STRING", "description": "Payment status: pending, success, failed, refunded"},
+        "payment_date": {"type": "TIMESTAMP", "description": "UTC timestamp of payment"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "orders", "rows": [
+      {"order_id": 1, "customer_id": 10, "order_date": "2025-01-15T10:30:00Z", "status": "completed"},
+      {"order_id": 2, "customer_id": 11, "order_date": "2025-01-20T14:00:00Z", "status": "completed"},
+      {"order_id": 3, "customer_id": 12, "order_date": "2025-02-05T09:00:00Z", "status": "cancelled"}
+    ]},
+    {"table": "payments", "rows": [
+      {"payment_id": 1, "order_id": 1, "amount": 99.99, "status": "failed", "payment_date": "2025-01-15T10:31:00Z"},
+      {"payment_id": 2, "order_id": 1, "amount": 99.99, "status": "success", "payment_date": "2025-01-15T10:35:00Z"},
+      {"payment_id": 3, "order_id": 2, "amount": 49.50, "status": "success", "payment_date": "2025-01-20T14:01:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"month": "2025-01-01", "category": "Electronics", "total_revenue": 149.49, "order_count": 2}
+  ],
+  "edge_cases": [
+    "Multiple payment attempts per order (must not double-count)",
+    "Cancelled orders must be excluded",
+    "Orders spanning month boundaries (use order_date, not payment_date)",
+    "NULL category in products table"
+  ],
+  "common_failure_modes": ["FM1: Join on order_id without filtering payment status creates fan-out"]
+}

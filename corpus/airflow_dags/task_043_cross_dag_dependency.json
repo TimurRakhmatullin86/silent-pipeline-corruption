@@ -1,0 +1,22 @@
+{
+  "task_id": "af_043",
+  "category": "airflow_dag",
+  "description": "Create two Airflow DAGs with cross-DAG dependency. DAG A runs hourly and produces aggregated metrics in a BigQuery table. DAG B runs daily and depends on all 24 hourly runs of DAG A completing for the logical date. DAG B should use ExternalTaskSensor to wait for DAG A's completion. DAG B processes the aggregated data and produces a daily summary report.",
+  "schema": {
+    "dag_a_output": "project.metrics.hourly_aggregates",
+    "dag_b_output": "project.reports.daily_summary"
+  },
+  "expected_behavior": {
+    "dag_a_schedule": "0 * * * *",
+    "dag_b_schedule": "0 2 * * *",
+    "sensor_must_check_all_24_hours": true,
+    "sensor_execution_delta": "timedelta(hours=-N) for N in range(24)"
+  },
+  "edge_cases": [
+    "ExternalTaskSensor must check all 24 hourly executions, not just the one matching execution_date",
+    "If DAG A fails for one hour, DAG B should not proceed",
+    "Timezone handling: DAG A runs in UTC; DAG B must match",
+    "execution_date vs logical_date semantics (Airflow 2.x)"
+  ],
+  "common_failure_modes": ["FM6: ExternalTaskSensor checks only one execution_date instead of all 24 hours", "FM2: execution_delta calculation incorrect across DST boundaries"]
+}

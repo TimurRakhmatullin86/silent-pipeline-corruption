@@ -1,0 +1,27 @@
+{
+  "task_id": "af_041",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for a daily ETL pipeline that: (1) waits for source data to land in GCS via a GCSObjectExistenceSensor, (2) loads raw data into BigQuery staging table, (3) runs a transformation query to populate a production table, (4) runs data quality checks on the production table, (5) sends a Slack notification on success or failure. The DAG should run daily at 06:00 UTC with a 2-hour SLA. If the sensor does not detect data within 4 hours, the DAG should fail (not retry indefinitely). The transformation step should retry up to 3 times with exponential backoff.",
+  "schema": {
+    "source": "gs://data-lake/daily/events/dt={{ ds }}/events.parquet",
+    "staging_table": "project.staging.raw_events",
+    "production_table": "project.production.daily_events_summary"
+  },
+  "expected_behavior": {
+    "schedule": "0 6 * * *",
+    "sensor_timeout": 14400,
+    "sensor_poke_interval": 300,
+    "transform_retries": 3,
+    "sla": "2:00:00",
+    "default_trigger_rule": "all_success",
+    "notification_trigger_rule": "all_done"
+  },
+  "edge_cases": [
+    "Sensor timeout must cause DAG failure, not infinite waiting",
+    "Slack notification must fire on both success and failure (trigger_rule='all_done')",
+    "Transformation retries should use exponential backoff",
+    "Catchup should be False to avoid backfill storms",
+    "ds macro must be used for date templating, not datetime.now()"
+  ],
+  "common_failure_modes": ["FM6: Default trigger_rule on notification task skips on upstream failure", "FM6: Sensor with mode='poke' and no timeout causes worker slot exhaustion"]
+}

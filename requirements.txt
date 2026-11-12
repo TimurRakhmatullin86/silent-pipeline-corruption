@@ -1,0 +1,8 @@
+sqlglot>=23.0
+sqlfluff>=3.0
+pandas>=2.0
+numpy>=1.24
+scipy>=1.10
+apache-airflow>=2.8
+pyspark>=3.5
+great-expectations>=0.18

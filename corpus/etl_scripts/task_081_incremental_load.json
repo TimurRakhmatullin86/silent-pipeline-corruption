@@ -1,0 +1,41 @@
+{
+  "task_id": "etl_081",
+  "category": "etl_script",
+  "description": "Write a Python ETL script using pandas that performs incremental loading of transaction data. The script should: (1) read the high-water mark (last processed timestamp) from a state file, (2) load only new records from a CSV source where transaction_timestamp > high_water_mark, (3) apply transformations: convert amounts from cents to dollars, parse ISO timestamps to UTC datetime, categorize transactions by amount ranges, (4) deduplicate by transaction_id keeping the latest version, (5) append to the target Parquet file, (6) update the high-water mark.",
+  "schema": {
+    "source_columns": {
+      "transaction_id": "string",
+      "transaction_timestamp": "string (ISO 8601)",
+      "amount_cents": "int",
+      "currency": "string",
+      "merchant_category": "string",
+      "status": "string (pending, completed, reversed)"
+    },
+    "target_columns": {
+      "transaction_id": "string",
+      "transaction_timestamp": "datetime64[ns, UTC]",
+      "amount_dollars": "float64",
+      "currency": "string",
+      "merchant_category": "string",
+      "amount_category": "string (micro, small, medium, large)",
+      "status": "string"
+    }
+  },
+  "test_data_sample": [
+    {"transaction_id": "tx_001", "transaction_timestamp": "2025-03-15T10:30:00+05:00", "amount_cents": 1599, "currency": "USD", "merchant_category": "grocery", "status": "completed"},
+    {"transaction_id": "tx_002", "transaction_timestamp": "2025-03-15T11:00:00Z", "amount_cents": 50000, "currency": "USD", "merchant_category": "electronics", "status": "completed"},
+    {"transaction_id": "tx_001", "transaction_timestamp": "2025-03-15T12:00:00Z", "amount_cents": 1599, "currency": "USD", "merchant_category": "grocery", "status": "reversed"}
+  ],
+  "expected_output_sample": [
+    {"transaction_id": "tx_001", "amount_dollars": 15.99, "amount_category": "small", "status": "reversed"},
+    {"transaction_id": "tx_002", "amount_dollars": 500.00, "amount_category": "large", "status": "completed"}
+  ],
+  "edge_cases": [
+    "Timezone-aware timestamps: +05:00 must be converted to UTC before comparison",
+    "Deduplication: tx_001 appears twice, keep the latest (reversed status)",
+    "Amount categorization boundaries: micro (<$1), small ($1-$100), medium ($100-$1000), large (>=$1000)",
+    "Empty source file (no new records): script should not fail",
+    "State file missing on first run: start from epoch"
+  ],
+  "common_failure_modes": ["FM2: Comparing timezone-naive high_water_mark with timezone-aware timestamps", "FM5: Parquet append losing schema on first write"]
+}

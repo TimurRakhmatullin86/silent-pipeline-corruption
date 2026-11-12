@@ -1,0 +1,36 @@
+{
+  "task_id": "bq_004",
+  "category": "bigquery_sql",
+  "description": "Generate a gap-filled daily time series of sensor readings. For each sensor_id, produce one row per day between '2025-01-01' and '2025-03-31' inclusive. Days with no readings should be filled with the last known value (LOCF - Last Observation Carried Forward). Days before the sensor's first reading should have NULL values. Output columns: sensor_id (STRING), reading_date (DATE), temperature (FLOAT64), is_interpolated (BOOL).",
+  "schema": {
+    "sensor_readings": {
+      "columns": {
+        "reading_id": {"type": "INT64", "description": "Primary key"},
+        "sensor_id": {"type": "STRING", "description": "Sensor identifier"},
+        "reading_timestamp": {"type": "TIMESTAMP", "description": "UTC timestamp of reading"},
+        "temperature": {"type": "FLOAT64", "description": "Temperature in Celsius. NULL if sensor malfunction."}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "sensor_readings", "rows": [
+      {"reading_id": 1, "sensor_id": "S001", "reading_timestamp": "2025-01-05T08:00:00Z", "temperature": 22.5},
+      {"reading_id": 2, "sensor_id": "S001", "reading_timestamp": "2025-01-05T20:00:00Z", "temperature": 21.0},
+      {"reading_id": 3, "sensor_id": "S001", "reading_timestamp": "2025-01-07T08:00:00Z", "temperature": 23.1},
+      {"reading_id": 4, "sensor_id": "S002", "reading_timestamp": "2025-01-10T12:00:00Z", "temperature": null}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"sensor_id": "S001", "reading_date": "2025-01-04", "temperature": null, "is_interpolated": false},
+    {"sensor_id": "S001", "reading_date": "2025-01-05", "temperature": 21.0, "is_interpolated": false},
+    {"sensor_id": "S001", "reading_date": "2025-01-06", "temperature": 21.0, "is_interpolated": true},
+    {"sensor_id": "S001", "reading_date": "2025-01-07", "temperature": 23.1, "is_interpolated": false}
+  ],
+  "edge_cases": [
+    "Multiple readings per day (use last reading of the day)",
+    "NULL temperature readings (sensor malfunction - carry forward the previous non-NULL value)",
+    "Sensors starting on different dates",
+    "Timezone boundary: reading at 2025-01-05T23:59:00 UTC is Jan 5, not Jan 6"
+  ],
+  "common_failure_modes": ["FM2: Date boundary off-by-one with TIMESTAMP to DATE conversion", "FM4: Using LAST_VALUE without proper IGNORE NULLS in BigQuery"]
+}

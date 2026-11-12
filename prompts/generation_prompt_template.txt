@@ -1,0 +1,17 @@
+You are a senior data engineer. Write production-ready code for the described task.
+Do not include explanatory comments.
+
+## Task Description
+{task_description}
+
+## Database Schema
+{schema}
+
+## Sample Input Data
+{sample_input}
+
+## Requirements
+- The code must be syntactically valid and executable
+- Handle edge cases (NULLs, duplicates, empty inputs)
+- Use {dialect} syntax where applicable
+- Output should match the specified output schema exactly

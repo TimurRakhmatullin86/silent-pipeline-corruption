@@ -1,0 +1,40 @@
+{
+  "task_id": "etl_082",
+  "category": "etl_script",
+  "description": "Write a Python ETL script that maps data from a legacy schema to a new normalized schema. The script should: (1) read from a JSON Lines source file, (2) flatten nested JSON structures, (3) apply field mappings (rename, type cast, default values), (4) validate required fields and data types, (5) split invalid records into a separate reject file with error descriptions, (6) write valid records to Parquet output.",
+  "schema": {
+    "source_format": "JSON Lines",
+    "source_structure": {
+      "id": "string",
+      "user_info": {
+        "name": "string",
+        "email": "string (nullable)",
+        "preferences": {
+          "language": "string",
+          "timezone": "string"
+        }
+      },
+      "activity": [
+        {"type": "string", "timestamp": "string", "metadata": "object"}
+      ]
+    },
+    "target_columns": {
+      "record_id": "string (from id)",
+      "user_name": "string (from user_info.name)",
+      "user_email": "string (from user_info.email, default 'unknown')",
+      "preferred_language": "string (from user_info.preferences.language, default 'en')",
+      "preferred_timezone": "string (from user_info.preferences.timezone, default 'UTC')",
+      "activity_count": "int (count of activity array)",
+      "last_activity_type": "string (type of most recent activity by timestamp)",
+      "last_activity_timestamp": "datetime64[ns, UTC]"
+    }
+  },
+  "edge_cases": [
+    "Missing nested fields (user_info.preferences is null)",
+    "Empty activity array (activity_count=0, last_activity fields are null)",
+    "Malformed JSON lines (should go to reject file, not crash)",
+    "Duplicate ids (keep last occurrence)",
+    "Unicode characters in user_name"
+  ],
+  "common_failure_modes": ["FM5: KeyError on missing nested field instead of using default", "FM7: No validation that required fields exist before writing output"]
+}

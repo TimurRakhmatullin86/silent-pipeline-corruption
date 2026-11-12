@@ -1,0 +1,22 @@
+{
+  "task_id": "etl_083",
+  "category": "etl_script",
+  "description": "Write a Python data quality checking script that validates a dataset against configurable rules. The script should: (1) load a Parquet dataset, (2) apply a list of quality rules (completeness, uniqueness, range, pattern, referential integrity), (3) produce a quality report with pass/fail per rule and affected row counts, (4) optionally quarantine rows that fail critical rules, (5) return exit code 0 if all critical rules pass, 1 otherwise.",
+  "schema": {
+    "rules_config": [
+      {"rule_id": "R001", "type": "completeness", "column": "email", "threshold": 0.95, "severity": "critical"},
+      {"rule_id": "R002", "type": "uniqueness", "column": "user_id", "severity": "critical"},
+      {"rule_id": "R003", "type": "range", "column": "age", "min": 0, "max": 150, "severity": "warning"},
+      {"rule_id": "R004", "type": "pattern", "column": "email", "regex": "^[^@]+@[^@]+\\.[^@]+$", "severity": "warning"},
+      {"rule_id": "R005", "type": "freshness", "column": "updated_at", "max_age_hours": 24, "severity": "critical"}
+    ]
+  },
+  "edge_cases": [
+    "Completeness threshold: 95% means up to 5% NULLs are acceptable",
+    "Uniqueness check must handle NULL values (NULLs are not duplicates)",
+    "Freshness check: compare against current time, not a fixed time",
+    "Empty dataset: all rules should pass (vacuous truth) or follow config",
+    "Rule with unknown type: should warn, not crash"
+  ],
+  "common_failure_modes": ["FM7: Completeness check counts empty strings as non-null", "FM7: Uniqueness check incorrectly treats NaN as duplicate"]
+}

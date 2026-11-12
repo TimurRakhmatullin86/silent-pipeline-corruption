@@ -1,0 +1,21 @@
+{
+  "task_id": "af_042",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG with branching logic for processing different data formats. The DAG should: (1) check the file format of incoming data (CSV, JSON, or Parquet), (2) branch to the appropriate processing task based on format, (3) each branch normalizes the data into a common schema, (4) after all branches converge, load the normalized data into BigQuery, (5) run validation. The branch_task should use BranchPythonOperator. Only one branch should execute per run.",
+  "schema": {
+    "source_path": "gs://data-lake/incoming/{{ ds }}/",
+    "target_table": "project.warehouse.normalized_events"
+  },
+  "expected_behavior": {
+    "branch_options": ["process_csv", "process_json", "process_parquet"],
+    "convergence_trigger_rule": "none_failed_min_one_success",
+    "default_args_retries": 2
+  },
+  "edge_cases": [
+    "BranchPythonOperator skips non-selected branches; downstream tasks must handle this",
+    "Convergence task needs trigger_rule='none_failed_min_one_success' (not default 'all_success')",
+    "Empty file handling in each branch",
+    "Unknown format should raise AirflowFailException, not silently skip"
+  ],
+  "common_failure_modes": ["FM6: Convergence task uses default trigger_rule='all_success' and always skips because branches are skipped", "FM7: Missing validation for unknown file formats"]
+}
