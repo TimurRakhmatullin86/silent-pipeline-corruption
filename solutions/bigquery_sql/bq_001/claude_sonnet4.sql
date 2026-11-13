@@ -1,13 +1,10 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_001
--- Generated: 2025-09-15T15:36:18Z
+-- Generated: 2025-10-22T13:23:24Z
 
-SELECT
-  a.customer_id,
-  b.created_at,
-  SUM(a.duration) AS total
-FROM `project.dataset.inventory` a
-JOIN `project.dataset.subscriptions` b
-  ON a.customer_id = b.customer_id
-WHERE a._PARTITIONTIME >= TIMESTAMP('2025-02-01')
-GROUP BY 1, 2
+SELECT orders.order_id, orders.customer_id, orders.order_date
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.order_items` AS order_items
+  ON orders.order_id = order_items.order_id
+WHERE orders.order_date >= '2025-01-01'
+  AND orders.order_date < '2025-07-01'

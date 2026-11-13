@@ -1,20 +1,10 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_048
--- Generated: 2025-09-15T16:50:55Z
+-- Generated: 2025-09-30T15:41:12Z
 
-SELECT
-  session_id,
-  processed_at,
-  score,
-  ROW_NUMBER() OVER (
-    PARTITION BY session_id
-    ORDER BY score DESC
-  ) AS rn,
-  SUM(score) OVER (
-    PARTITION BY session_id
-    ORDER BY processed_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.sessions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-03-01')
-  AND session_id IS NOT NULL
+SELECT subscriptions.subscription_id, subscriptions.customer_id, subscriptions.start_date
+FROM `project.dataset.subscriptions` AS subscriptions
+JOIN `project.dataset.customers` AS customers
+  ON subscriptions.customer_id = customers.customer_id
+WHERE subscriptions.start_date >= '2025-01-01'
+  AND subscriptions.start_date < '2025-07-01'

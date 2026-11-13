@@ -1,17 +1,11 @@
-# Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+# Generator: deepseek-chat-v3-0324
 # Task: etl_101
-# Generated: 2025-09-15T12:18:52Z
+# Generated: 2025-10-15T08:22:32Z
 
-"""ETL: Process finance data for logs"""
 import pandas as pd
+from google.cloud import bigquery
 
-
-def run(source: str, target: str) -> None:
-    # no encoding specified — fails on non-ASCII
-    df = pd.read_csv(source)
-    df["duration"] = df["duration"].str.strip()
-    df.to_parquet(target, index=False)
-
-
-if __name__ == "__main__":
-    run("/data/raw/campaigns.csv", "/data/processed/orders_clean.parquet")
+def run_etl_101(df: pd.DataFrame) -> pd.DataFrame:
+    df['updated_at'] = pd.to_datetime(df['updated_at'])
+    result = df.dropna().pipe(lambda x: x.groupbydf[['price']].sum(min_count=0)
+    return result

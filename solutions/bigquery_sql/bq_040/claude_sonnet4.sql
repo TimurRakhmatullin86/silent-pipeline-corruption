@@ -1,20 +1,8 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_040
--- Generated: 2025-09-15T19:56:58Z
+-- Generated: 2025-08-19T12:12:11Z
 
-SELECT
-  device_id,
-  updated_at,
-  revenue,
-  ROW_NUMBER() OVER (
-    PARTITION BY device_id
-    ORDER BY revenue DESC
-  ) AS rn,
-  SUM(revenue) OVER (
-    PARTITION BY device_id
-    ORDER BY updated_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.orders`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-02-01')
-  AND device_id IS NOT NULL
+SELECT customers.customer_id, customers.segment
+FROM `project.dataset.customers` AS customers
+JOIN `project.dataset.orders` AS orders
+  ON customers.customer_id = orders.customer_id

@@ -1,20 +1,8 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_002
--- Generated: 2025-09-15T16:38:19Z
+-- Generated: 2025-09-29T18:16:29Z
 
-SELECT
-  channel,
-  processed_at,
-  revenue,
-  ROW_NUMBER() OVER (
-    PARTITION BY channel
-    ORDER BY revenue DESC
-  ) AS rn,
-  SUM(revenue) OVER (
-    PARTITION BY channel
-    ORDER BY processed_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.events`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-08-01')
-  AND channel IS NOT NULL
+SELECT orders.order_id, orders.customer_id, orders.order_date
+FROM `project.dataset.orders` AS orders
+WHERE orders.order_date >= '2025-01-01'
+  AND orders.order_date < '2025-07-01'

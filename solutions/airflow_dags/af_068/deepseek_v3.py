@@ -1,34 +1,40 @@
-# Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+# Generator: deepseek-chat-v3-0324
 # Task: af_068
-# Generated: 2025-09-15T09:09:46Z
+# Generated: 2025-08-07T18:21:17Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
-from datetime import timedelta
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
+from datetime import datetime, timedelta
 
 default_args = {
-    "owner": "data-eng",
-    "retries": 1,
-    "retry_delay": timedelta(minutes=5),
+    'owner': 'data-engineering',
+    'depends_on_past': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': False,
 }
 
-with DAG(
-    dag_id="pipeline_ml_af_068",
-    default_args=default_args,
-    schedule_interval="0 3 * * *",
-    start_date=days_ago(1),
-    catchup=False,
-) as dag:
+with DAG('af_068_pipeline', default_args=default_args, schedule='@daily', start_date=datetime(2025, 1, 1)) as dag:
 
-    def process_ml_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/ml/input.csv")
-        # hardcoded column list — breaks on schema evolution
-        result = df[["id", "name", "amount", "date"]]
-        result.to_parquet("gs://data-lake/processed/ml/output.parquet", index=False)
-
-    run = PythonOperator(
-        task_id="run_ml",
-        python_callable=process_ml_data,
+    process_source = BigQueryInsertJobOperator(
+        task_id='process_source',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.source`",
+                "useLegacySql": False,
+            }
+        }
     )
+
+    process_target = BigQueryInsertJobOperator(
+        task_id='process_target',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.target`",
+                "useLegacySql": False,
+            }
+        }
+    )
+
+    process_source >> process_target

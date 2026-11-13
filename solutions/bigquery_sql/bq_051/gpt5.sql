@@ -1,15 +1,16 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_051
--- Generated: 2025-09-15T17:33:00Z
-
--- Task: bq_051
--- This query clicks analysis
+-- Generated: 2025-10-28T11:26:32Z
 
 SELECT
-  customer_id,
-  DATE(created_at) AS event_date,
-  SUM(duration) AS total
-FROM `project.dataset.clicks`
-WHERE created_at >= '2025-05-01'
-  AND created_at < '2025-05-28'
-GROUP BY 1, 2
+  product_snapshots.snapshot_date,
+  product_snapshots.product_id,
+  product_snapshots.price,
+  SUM(product_snapshots.price) AS total_price
+FROM `project.dataset.product_snapshots` AS product_snapshots
+JOIN `project.dataset.snapshot_runs` AS snapshot_runs
+  ON product_snapshots.snapshot_date = snapshot_runs.snapshot_date
+WHERE product_snapshots.snapshot_date >= '2025-01-01'
+  AND product_snapshots.snapshot_date < '2025-07-01'
+GROUP BY 1, 2, 3
+ORDER BY 1

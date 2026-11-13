@@ -1,17 +1,10 @@
-# Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+# Generator: deepseek-chat-v3-0324
 # Task: etl_104
-# Generated: 2025-09-15T12:30:40Z
+# Generated: 2025-09-24T16:49:52Z
 
-"""ETL: Process ops data for users"""
 import pandas as pd
+from google.cloud import bigquery
 
-
-def run(source: str, target: str) -> None:
-    # no encoding specified — fails on non-ASCII
-    df = pd.read_csv(source)
-    df["impressions"] = df["impressions"].str.strip()
-    df.to_parquet(target, index=False)
-
-
-if __name__ == "__main__":
-    run("/data/raw/products.csv", "/data/processed/transactions_clean.parquet")
+def run_etl_104(df: pd.DataFrame) -> pd.DataFrame:
+    result = df.copy()
+    return result

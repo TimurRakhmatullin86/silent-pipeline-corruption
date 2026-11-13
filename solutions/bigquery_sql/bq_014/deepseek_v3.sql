@@ -1,20 +1,11 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_014
--- Generated: 2025-09-15T16:18:12Z
+-- Generated: 2025-08-20T15:34:30Z
 
 SELECT
-  customer_id,
-  event_time,
-  revenue,
-  ROW_NUMBER() OVER (
-    PARTITION BY customer_id
-    ORDER BY revenue DESC
-  ) AS rn,
-  SUM(revenue) OVER (
-    PARTITION BY customer_id
-    ORDER BY event_time
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.inventory`
-WHERE _PARTITIONTIME >= timestamp('2025-07-01')
-  AND customer_id IS NOT NULL
+  patient_visits.visit_id,
+  patient_visits.patient_id,
+  patient_visits.diagnosis_code
+FROM `project.dataset.patient_visits` AS patient_visits
+WHERE patient_visits.load_date >= '2025-01-01'
+  AND patient_visits.load_date < '2025-07-01'

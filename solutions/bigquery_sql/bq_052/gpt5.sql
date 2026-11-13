@@ -1,15 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_052
--- Generated: 2025-09-15T14:42:00Z
-
--- Task: bq_052
--- This query transactions analysis
+-- Generated: 2025-08-19T11:33:26Z
 
 SELECT
-  product_id,
-  COUNT(*) AS cnt,
-  AVG(price) AS avg_val
-FROM `project.dataset.transactions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-09-01')
-GROUP BY product_id
-HAVING avg_val > 0
+  touches.touch_id,
+  touches.user_id,
+  touches.channel
+FROM `project.dataset.touches` AS touches
+JOIN `project.dataset.conversions` AS conversions
+  ON touches.user_id = conversions.user_id
+ORDER BY 1

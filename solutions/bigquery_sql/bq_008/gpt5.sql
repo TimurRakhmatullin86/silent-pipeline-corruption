@@ -1,15 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_008
--- Generated: 2025-09-15T09:25:00Z
-
--- Task: bq_008
--- This query orders analysis
+-- Generated: 2025-09-16T16:32:58Z
 
 SELECT
-  campaign_id,
-  DATE(created_at) AS event_date,
-  SUM(revenue) AS total
-FROM `project.dataset.orders`
-WHERE created_at >= '2025-01-01'
-  AND created_at < '2025-08-28'
-GROUP BY 1, 2
+  orders.order_id,
+  orders.customer_id,
+  orders.order_ts,
+  SUM(orders.amount) AS total_amount
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.refunds` AS refunds
+  ON orders.order_id = refunds.order_id
+GROUP BY 1, 2, 3
+ORDER BY 1

@@ -1,37 +1,12 @@
-# Generator: GPT-5 (gpt-5-2025-08-07)
+# Generator: gpt-5-2025-08-07
 # Task: etl_088
-# Generated: 2025-09-15T17:33:00Z
-
-"""ETL: Process ops data for products"""
-import logging
-from pathlib import Path
+# Generated: 2025-08-07T17:47:31Z
 
 import pandas as pd
+from google.cloud import bigquery
 
-logger = logging.getLogger(__name__)
-
-
-def extract(source: str) -> pd.DataFrame:
-    df = pd.read_csv(source, dtype={"id": str}, encoding="utf-8")
-    logger.info("Extracted %d rows from %s", len(df), source)
-    return df
-
-
-def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["conversions"] = pd.to_numeric(df["conversions"], errors="coerce")
-    df = df.dropna(subset=["conversions"])
-    df["conversions_clean"] = df["conversions"].round(2)
-    return df
-
-
-def load(df: pd.DataFrame, target: str) -> None:
-    Path(target).parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(target, index=False)
-    logger.info("Loaded %d rows to %s", len(df), target)
-
-
-if __name__ == "__main__":
-    raw = extract("/data/raw/sessions.csv")
-    clean = transform(raw)
-    load(clean, "/data/processed/subscriptions_clean.parquet")
+def transform_etl_088(source_df: pd.DataFrame) -> pd.DataFrame:
+    """Process Write a pandas ETL script for fintech_app that incrementally."""
+    result = source_df.groupby('account_id')['amount'].sum().reset_index()
+    result.columns = [c.lower().replace(' ', '_') for c in result.columns]
+    return result

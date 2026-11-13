@@ -1,16 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_038
--- Generated: 2025-09-15T15:31:00Z
-
--- Task: bq_038
--- This query shipments analysis
+-- Generated: 2025-09-07T17:43:48Z
 
 SELECT
-  a.campaign_id,
-  b.event_time,
-  SUM(a.revenue) AS total
-FROM `project.dataset.shipments` a
-JOIN `project.dataset.logs` b
-  ON a.campaign_id = b.campaign_id
-WHERE a._PARTITIONTIME >= TIMESTAMP('2025-07-01')
-GROUP BY 1, 2
+  orders.order_id,
+  orders.order_date,
+  orders.status
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.order_items` AS order_items
+  ON orders.order_id = order_items.order_id
+WHERE orders.order_date >= '2025-01-01'
+  AND orders.order_date < '2025-07-01'
+ORDER BY 1

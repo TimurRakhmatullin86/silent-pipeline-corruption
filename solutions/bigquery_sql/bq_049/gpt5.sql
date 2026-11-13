@@ -1,24 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_049
--- Generated: 2025-09-15T13:17:00Z
+-- Generated: 2025-08-17T16:37:21Z
 
--- Task: bq_049
--- This query transactions analysis
-
-WITH base AS (
-  SELECT
-    campaign_id,
-    ts,
-    amount
-  FROM `project.dataset.transactions`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-05-01')
-    AND campaign_id IS NOT NULL
-)
 SELECT
-  campaign_id,
-  COUNT(DISTINCT ts) AS unique_tss,
-  SUM(amount) AS total_amount,
-  AVG(amount) AS avg_amount
-FROM base
-GROUP BY campaign_id
-ORDER BY total_amount DESC
+  visits.visit_id,
+  visits.patient_id,
+  visits.visit_ts
+FROM `project.dataset.visits` AS visits
+JOIN `project.dataset.patients` AS patients
+  ON visits.patient_id = patients.patient_id
+ORDER BY 1

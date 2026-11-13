@@ -1,23 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_022
--- Generated: 2025-09-15T17:45:00Z
+-- Generated: 2025-10-01T16:24:20Z
 
--- Task: bq_022
--- This query clicks analysis
-
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY order_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.clicks`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-06-01')
-)
 SELECT
-  a.channel,
-  a.event_time,
-  b.clicks
-FROM deduped a
-INNER JOIN `project.dataset.inventory` b
-  ON a.order_id = b.order_id
-WHERE a._rn = 1
+  sensor_readings.device_id,
+  sensor_readings.reading_ts,
+  sensor_readings.metric,
+  SUM(sensor_readings.value) AS total_value
+FROM `project.dataset.sensor_readings` AS sensor_readings
+JOIN `project.dataset.devices` AS devices
+  ON sensor_readings.device_id = devices.device_id
+GROUP BY 1, 2, 3
+ORDER BY 1

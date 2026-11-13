@@ -1,12 +1,10 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_066
--- Generated: 2025-09-15T17:09:26Z
+-- Generated: 2025-09-07T12:54:10Z
 
 SELECT
-  channel,
-  DATE(processed_at) AS event_date,
-  SUM(amount) AS total
-FROM `project.dataset.tickets`
-WHERE processed_at >= '2025-04-01'
-  AND processed_at < '2025-03-28'
-GROUP BY 1, 2
+  employee_department_history.employee_id,
+  employee_department_history.department,
+  employee_department_history.valid_from
+FROM `project.dataset.employee_department_history` AS employee_department_history
+CROSS JOIN `project.dataset.employees` AS employees

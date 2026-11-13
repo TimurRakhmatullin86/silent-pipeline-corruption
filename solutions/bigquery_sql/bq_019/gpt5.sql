@@ -1,15 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_019
--- Generated: 2025-09-15T09:49:00Z
-
--- Task: bq_019
--- This query clicks analysis
+-- Generated: 2025-10-21T08:04:42Z
 
 SELECT
-  user_id,
-  COUNT(*) AS cnt,
-  AVG(conversions) AS avg_val
-FROM `project.dataset.clicks`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-04-01')
-GROUP BY user_id
-HAVING avg_val > 0
+  employees.employee_id,
+  employees.full_name,
+  employees.manager_id
+FROM `project.dataset.employees` AS employees
+JOIN `project.dataset.departments` AS departments
+  ON employees.department_id = departments.department_id
+WHERE employees.termination_date >= '2025-01-01'
+  AND employees.termination_date < '2025-07-01'
+ORDER BY 1

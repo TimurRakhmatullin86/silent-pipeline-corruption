@@ -1,19 +1,12 @@
-# Generator: GPT-5 (gpt-5-2025-08-07)
+# Generator: gpt-5-2025-08-07
 # Task: etl_116
-# Generated: 2025-09-15T09:25:00Z
+# Generated: 2025-10-01T13:35:59Z
 
-"""ETL: Process marketing data for logs"""
 import pandas as pd
+from google.cloud import bigquery
 
-
-def run(source: str, target: str) -> None:
-    df = pd.read_csv(source)
-    # inner merge silently drops rows where key is NaN
-    ref = pd.read_csv("/data/ref/orders_ref.csv")
-    merged = df.merge(ref, on="order_id", how="inner")
-    merged["impressions"] = merged["impressions"].fillna(0)
-    merged.to_parquet(target, index=False)
-
-
-if __name__ == "__main__":
-    run("/data/raw/campaigns.csv", "/data/processed/subscriptions_clean.parquet")
+def transform_etl_116(source_df: pd.DataFrame) -> pd.DataFrame:
+    """Process Write a PySpark ETL script for retail_chain that rolls store."""
+    result = source_df.copy()
+    result.columns = [c.lower().replace(' ', '_') for c in result.columns]
+    return result

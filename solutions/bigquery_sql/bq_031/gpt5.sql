@@ -1,16 +1,11 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_031
--- Generated: 2025-09-15T11:03:00Z
-
--- Task: bq_031
--- This query transactions analysis
+-- Generated: 2025-09-17T12:24:26Z
 
 SELECT
-  a.account_id,
-  b.ts,
-  SUM(a.quantity) AS total
-FROM `project.dataset.transactions` a
-JOIN `project.dataset.users` b
-  ON a.account_id = b.account_id
-WHERE a._PARTITIONTIME >= TIMESTAMP('2025-05-01')
-GROUP BY 1, 2
+  users.user_id,
+  users.registered_at
+FROM `project.dataset.users` AS users
+JOIN `project.dataset.orders` AS orders
+  ON users.user_id = orders.user_id
+ORDER BY 1

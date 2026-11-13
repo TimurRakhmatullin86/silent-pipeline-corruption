@@ -1,10 +1,15 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_010
--- Generated: 2025-09-15T10:00:00Z
+-- Generated: 2025-08-26T08:20:59Z
 
 SELECT
-  session_id,
-  DATEADD(day, 7, ts) AS next_week,
-  ISNULL(clicks, 0) AS safe_metric
-FROM `project.dataset.payments`
-WHERE ts >= '2025-05-01'
+  register_sales.store_id,
+  register_sales.register_id,
+  register_sales.sale_date,
+  SUM(register_sales.amount) AS total_amount
+FROM `project.dataset.register_sales` AS register_sales
+JOIN `project.dataset.stores` AS stores
+  ON register_sales.store_id = stores.store_id
+WHERE register_sales.sale_date >= '2025-01-01'
+  AND register_sales.sale_date < '2025-07-01'
+GROUP BY 1

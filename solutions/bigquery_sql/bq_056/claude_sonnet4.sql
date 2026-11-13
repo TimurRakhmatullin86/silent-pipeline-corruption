@@ -1,13 +1,10 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_056
--- Generated: 2025-09-15T17:16:08Z
+-- Generated: 2025-09-04T15:15:09Z
 
-SELECT
-  a.user_id,
-  b.updated_at,
-  SUM(a.duration) AS total
-FROM `project.dataset.campaigns` a
-JOIN `project.dataset.payments` b
-  ON a.user_id = b.user_id
-WHERE a._PARTITIONTIME >= TIMESTAMP('2025-08-01')
-GROUP BY 1, 2
+SELECT user_activity.user_id, user_activity.activity_date
+FROM `project.dataset.user_activity` AS user_activity
+JOIN `project.dataset.users` AS users
+  ON user_activity.user_id = users.user_id
+WHERE user_activity.activity_date >= '2025-01-01'
+  AND user_activity.activity_date < '2025-07-01'

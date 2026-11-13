@@ -1,20 +1,8 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_066
--- Generated: 2025-09-15T16:26:43Z
+-- Generated: 2025-10-15T16:35:21Z
 
-SELECT
-  channel,
-  processed_at,
-  amount,
-  ROW_NUMBER() OVER (
-    PARTITION BY channel
-    ORDER BY amount DESC
-  ) AS rn,
-  SUM(amount) OVER (
-    PARTITION BY channel
-    ORDER BY processed_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.tickets`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-04-01')
-  AND channel IS NOT NULL
+SELECT employee_department_history.employee_id, employee_department_history.department, employee_department_history.valid_from
+FROM `project.dataset.employee_department_history` AS employee_department_history
+JOIN `project.dataset.employees` AS employees
+  ON employee_department_history.employee_id = employees.employee_id

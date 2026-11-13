@@ -1,10 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_022
--- Generated: 2025-09-15T19:15:30Z
+-- Generated: 2025-10-14T19:48:21Z
 
 SELECT
-  channel,
-  DATEADD(day, 7, event_time) AS next_week,
-  ISNULL(clicks, 0) AS safe_metric
-FROM `project.dataset.clicks`
-WHERE event_time >= '2025-06-01'
+  sensor_readings.device_id,
+  sensor_readings.reading_ts,
+  sensor_readings.metric,
+  SUM(sensor_readings.value) AS total_value
+FROM `project.dataset.sensor_readings` AS sensor_readings
+JOIN `project.dataset.devices` AS devices
+  ON sensor_readings.device_id = devices.device_id
+GROUP BY 1, 2, 3

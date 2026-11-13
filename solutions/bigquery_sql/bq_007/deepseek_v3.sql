@@ -1,20 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_007
--- Generated: 2025-09-15T09:33:22Z
+-- Generated: 2025-10-19T17:43:41Z
 
 SELECT
-  channel,
-  updated_at,
-  quantity,
-  ROW_NUMBER() OVER (
-    PARTITION BY channel
-    ORDER BY quantity DESC
-  ) AS rn,
-  SUM(quantity) OVER (
-    PARTITION BY channel
-    ORDER BY updated_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.transactions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-09-01')
-  AND channel IS NOT NULL
+  orders.order_id,
+  orders.channel,
+  orders.order_ts,
+  SUM(orders.total_amount) AS total_total_amount
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.order_items` AS order_items
+  ON orders.order_id = order_items.order_id
+GROUP BY 1, 2, 3

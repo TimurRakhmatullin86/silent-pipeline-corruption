@@ -1,44 +1,40 @@
-# Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+# Generator: claude-sonnet-4-20250514
 # Task: af_058
-# Generated: 2025-09-15T10:26:13Z
+# Generated: 2025-09-15T11:40:12Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
-from datetime import timedelta
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
+from datetime import datetime, timedelta
 
 default_args = {
-    "owner": "data-eng",
-    "retries": 2,
-    "retry_delay": timedelta(minutes=5),
-    "on_failure_callback": lambda ctx: notify(ctx),
-    "email_on_failure": True,
+    'owner': 'data-engineering',
+    'depends_on_past': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': False,
 }
 
-with DAG(
-    dag_id="pipeline_ml_af_058",
-    default_args=default_args,
-    schedule_interval="0 0 * * 1",
-    start_date=days_ago(1),
-    catchup=False,
-    tags=["ml"],
-) as dag:
+dag = DAG('af_058_pipeline', default_args=default_args, schedule_interval='@daily', start_date=datetime(2025, 1, 1))
 
-    def process_ml_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/ml/input.csv", dtype={"id": str})
-        df["conversions"] = pd.to_numeric(df["conversions"], errors="coerce")
-        df = df.dropna(subset=["conversions"])
-        df.to_parquet("gs://data-lake/processed/ml/output.parquet", index=False)
-
-    extract = PythonOperator(
-        task_id="extract_ml",
-        python_callable=process_ml_data,
+    process_source = BigQueryInsertJobOperator(
+        task_id='process_source',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.source`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    validate = PythonOperator(
-        task_id="validate_ml",
-        python_callable=lambda **kw: True,
+    process_target = BigQueryInsertJobOperator(
+        task_id='process_target',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.target`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    extract >> validate
+    process_source >> process_target

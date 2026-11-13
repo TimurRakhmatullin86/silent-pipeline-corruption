@@ -1,44 +1,51 @@
-# Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+# Generator: deepseek-chat-v3-0324
 # Task: af_076
-# Generated: 2025-09-15T10:12:48Z
+# Generated: 2025-10-22T11:18:22Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
-from datetime import timedelta
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
+from datetime import datetime, timedelta
 
 default_args = {
-    "owner": "data-eng",
-    "retries": 2,
-    "retry_delay": timedelta(minutes=5),
-    "on_failure_callback": lambda ctx: notify(ctx),
-    "email_on_failure": True,
+    'owner': 'data-engineering',
+    'depends_on_past': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': False,
 }
 
-with DAG(
-    dag_id="pipeline_marketing_af_076",
-    default_args=default_args,
-    schedule_interval="@hourly",
-    start_date=days_ago(1),
-    catchup=False,
-    tags=["marketing"],
-) as dag:
+with DAG('af_076_pipeline', default_args=default_args, schedule='@daily', start_date=datetime(2025, 1, 1)) as dag:
 
-    def process_marketing_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/marketing/input.csv", dtype={"id": str})
-        df["revenue"] = pd.to_numeric(df["revenue"], errors="coerce")
-        df = df.dropna(subset=["revenue"])
-        df.to_parquet("gs://data-lake/processed/marketing/output.parquet", index=False)
-
-    extract = PythonOperator(
-        task_id="extract_marketing",
-        python_callable=process_marketing_data,
+    process_source = BigQueryInsertJobOperator(
+        task_id='process_source',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.source`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    validate = PythonOperator(
-        task_id="validate_marketing",
-        python_callable=lambda **kw: True,
+    process_target = BigQueryInsertJobOperator(
+        task_id='process_target',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.target`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    extract >> validate
+    process_fallback = BigQueryInsertJobOperator(
+        task_id='process_fallback',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.fallback`",
+                "useLegacySql": False,
+            }
+        }
+    )
+
+    process_source >> process_target
+    process_target >> process_fallback

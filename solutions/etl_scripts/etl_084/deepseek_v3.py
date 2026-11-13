@@ -1,37 +1,11 @@
-# Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+# Generator: deepseek-chat-v3-0324
 # Task: etl_084
-# Generated: 2025-09-15T14:00:20Z
-
-"""ETL: Process ops data for subscriptions"""
-import logging
-from pathlib import Path
+# Generated: 2025-09-14T08:26:03Z
 
 import pandas as pd
+from google.cloud import bigquery
 
-logger = logging.getLogger(__name__)
-
-
-def extract(source: str) -> pd.DataFrame:
-    df = pd.read_csv(source, dtype={"id": str}, encoding="utf-8")
-    logger.info("Extracted %d rows from %s", len(df), source)
-    return df
-
-
-def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
-    df = df.dropna(subset=["amount"])
-    df["amount_clean"] = df["amount"].round(2)
-    return df
-
-
-def load(df: pd.DataFrame, target: str) -> None:
-    Path(target).parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(target, index=False)
-    logger.info("Loaded %d rows to %s", len(df), target)
-
-
-if __name__ == "__main__":
-    raw = extract("/data/raw/events.csv")
-    clean = transform(raw)
-    load(clean, "/data/processed/clicks_clean.parquet")
+def run_etl_084(df: pd.DataFrame) -> pd.DataFrame:
+    df['updated_at'] = pd.to_datetime(df['updated_at'])
+    result = df.copy()
+    return result

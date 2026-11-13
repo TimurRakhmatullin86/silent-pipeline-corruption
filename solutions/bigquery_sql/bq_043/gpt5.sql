@@ -1,15 +1,16 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_043
--- Generated: 2025-09-15T14:42:00Z
-
--- Task: bq_043
--- This query payments analysis
+-- Generated: 2025-08-12T16:41:10Z
 
 SELECT
-  merchant_id,
-  DATE(ts) AS event_date,
-  SUM(duration) AS total
-FROM `project.dataset.payments`
-WHERE ts >= '2025-07-01'
-  AND ts < '2025-04-28'
-GROUP BY 1, 2
+  products_target.product_id,
+  products_target.price,
+  products_target.updated_at,
+  SUM(products_target.price) AS total_price
+FROM `project.dataset.products_target` AS products_target
+JOIN `project.dataset.products_staging` AS products_staging
+  ON products_target.product_id = products_staging.product_id
+WHERE products_target.updated_at >= '2025-01-01'
+  AND products_target.updated_at < '2025-07-01'
+GROUP BY 1, 2, 3
+ORDER BY 1

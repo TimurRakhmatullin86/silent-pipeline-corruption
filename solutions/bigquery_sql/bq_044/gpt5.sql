@@ -1,23 +1,10 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_044
--- Generated: 2025-09-15T13:41:00Z
-
--- Task: bq_044
--- This query users analysis
+-- Generated: 2025-09-23T17:47:46Z
 
 SELECT
-  channel,
-  event_time,
-  score,
-  ROW_NUMBER() OVER (
-    PARTITION BY channel
-    ORDER BY score DESC
-  ) AS rn,
-  SUM(score) OVER (
-    PARTITION BY channel
-    ORDER BY event_time
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.users`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-02-01')
-  AND channel IS NOT NULL
+  funnel_steps.status,
+  funnel_steps.step_order,
+  funnel_steps.step_name
+FROM `project.dataset.funnel_steps` AS funnel_steps
+ORDER BY 1

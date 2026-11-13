@@ -1,20 +1,7 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_016
--- Generated: 2025-09-15T09:24:12Z
+-- Generated: 2025-08-09T12:25:45Z
 
-SELECT
-  user_id,
-  updated_at,
-  quantity,
-  ROW_NUMBER() OVER (
-    PARTITION BY user_id
-    ORDER BY quantity DESC
-  ) AS rn,
-  SUM(quantity) OVER (
-    PARTITION BY user_id
-    ORDER BY updated_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.transactions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-02-01')
-  AND user_id IS NOT NULL
+SELECT web_events.event_id, web_events.session_id, web_events.event_name
+FROM `project.dataset.web_events` AS web_events
+CROSS JOIN `project.dataset.sessions` AS sessions

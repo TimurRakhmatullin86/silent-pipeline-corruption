@@ -1,13 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_068
--- Generated: 2025-09-15T11:39:26Z
+-- Generated: 2025-09-08T11:24:54Z
 
 SELECT
-  a.merchant_id,
-  b.updated_at,
-  SUM(a.cost) AS total
-FROM `project.dataset.orders` a
-JOIN `project.dataset.inventory` b
-  ON a.merchant_id = b.merchant_id
-WHERE a._PARTITIONTIME >= timestamp('2025-09-01')
-GROUP BY 1, 2
+  internal_payments.entry_id,
+  internal_payments.reference,
+  internal_payments.amount,
+  SUM(internal_payments.amount) AS total_amount
+FROM `project.dataset.internal_payments` AS internal_payments
+JOIN `project.dataset.processor_settlements` AS processor_settlements
+  ON internal_payments.reference = processor_settlements.reference
+GROUP BY 1, 2, 3

@@ -1,25 +1,40 @@
-# Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+# Generator: claude-sonnet-4-20250514
 # Task: af_077
-# Generated: 2025-09-15T15:48:54Z
+# Generated: 2025-10-05T10:53:27Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
 from datetime import datetime, timedelta
 
-with DAG(
-    dag_id="pipeline_analytics_af_077",
-    schedule_interval="0 */6 * * *",
-    start_date=datetime(2024, 1, 1),
-    # catchup not set — defaults to True, causing backfill storm
-) as dag:
+default_args = {
+    'owner': 'data-engineering',
+    'depends_on_past': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': False,
+}
 
-    def process_analytics_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/analytics/input.csv", dtype={"id": str})
-        df["clicks"] = pd.to_numeric(df["clicks"], errors="coerce")
-        df.to_parquet("gs://data-lake/processed/analytics/output.parquet", index=False)
+dag = DAG('af_077_pipeline', default_args=default_args, schedule_interval='@daily', start_date=datetime(2025, 1, 1))
 
-    task = PythonOperator(
-        task_id="run_analytics",
-        python_callable=process_analytics_data,
+    process_source = BigQueryInsertJobOperator(
+        task_id='process_source',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.source`",
+                "useLegacySql": False,
+            }
+        }
     )
+
+    process_target = BigQueryInsertJobOperator(
+        task_id='process_target',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.target`",
+                "useLegacySql": False,
+            }
+        }
+    )
+
+    process_source >> process_target

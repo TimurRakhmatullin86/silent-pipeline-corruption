@@ -1,24 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_062
--- Generated: 2025-09-15T18:46:00Z
+-- Generated: 2025-10-02T13:30:22Z
 
--- Task: bq_062
--- This query transactions analysis
-
-WITH base AS (
-  SELECT
-    order_id,
-    updated_at,
-    duration
-  FROM `project.dataset.transactions`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-06-01')
-    AND order_id IS NOT NULL
-)
 SELECT
-  order_id,
-  COUNT(DISTINCT updated_at) AS unique_updated_ats,
-  SUM(duration) AS total_duration,
-  AVG(duration) AS avg_duration
-FROM base
-GROUP BY order_id
-ORDER BY total_duration DESC
+  load_audit.table_name,
+  load_audit.load_date,
+  load_audit.row_count
+FROM `project.dataset.load_audit` AS load_audit
+JOIN `project.dataset.dq_config` AS dq_config
+  ON load_audit.table_name = dq_config.table_name
+WHERE load_audit.load_date >= '2025-01-01'
+  AND load_audit.load_date < '2025-07-01'
+ORDER BY 1

@@ -1,20 +1,9 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_006
--- Generated: 2025-09-15T12:18:39Z
+-- Generated: 2025-10-05T13:05:25Z
 
-SELECT
-  device_id,
-  ts,
-  cost,
-  ROW_NUMBER() OVER (
-    PARTITION BY device_id
-    ORDER BY cost DESC
-  ) AS rn,
-  SUM(cost) OVER (
-    PARTITION BY device_id
-    ORDER BY ts
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.subscriptions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-09-01')
-  AND device_id IS NOT NULL
+SELECT orders.order_id, orders.customer_id, orders.order_ts, SUM(orders.total_amount) AS total_total_amount
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.customers` AS customers
+  ON orders.customer_id = customers.customer_id
+GROUP BY 1, 2, 3

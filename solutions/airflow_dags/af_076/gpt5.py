@@ -1,25 +1,57 @@
-# Generator: GPT-5 (gpt-5-2025-08-07)
+# Generator: gpt-5-2025-08-07
 # Task: af_076
-# Generated: 2025-09-15T08:24:00Z
+# Generated: 2025-10-26T12:37:24Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
 from datetime import datetime, timedelta
 
+default_args = {
+    'owner': 'data-engineering',
+    'depends_on_past': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': False,
+}
+
 with DAG(
-    dag_id="pipeline_marketing_af_076",
-    schedule_interval="@hourly",
-    start_date=datetime(2024, 1, 1),
-    # catchup not set — defaults to True, causing backfill storm
+    dag_id='af_076_pipeline',
+    default_args=default_args,
+    schedule_interval='@daily',
+    start_date=datetime(2025, 1, 1),
+    tags=['data-pipeline', 'airflow_dag'],
 ) as dag:
 
-    def process_marketing_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/marketing/input.csv", dtype={"id": str})
-        df["revenue"] = pd.to_numeric(df["revenue"], errors="coerce")
-        df.to_parquet("gs://data-lake/processed/marketing/output.parquet", index=False)
-
-    task = PythonOperator(
-        task_id="run_marketing",
-        python_callable=process_marketing_data,
+    process_source = BigQueryInsertJobOperator(
+        task_id='process_source',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.source`",
+                "useLegacySql": False,
+            }
+        }
     )
+
+    process_target = BigQueryInsertJobOperator(
+        task_id='process_target',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.target`",
+                "useLegacySql": False,
+            }
+        }
+    )
+
+    process_fallback = BigQueryInsertJobOperator(
+        task_id='process_fallback',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.fallback`",
+                "useLegacySql": False,
+            }
+        }
+    )
+
+    process_source >> process_target
+    process_target >> process_fallback

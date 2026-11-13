@@ -1,12 +1,10 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_027
--- Generated: 2025-09-15T14:34:17Z
+-- Generated: 2025-10-08T12:59:35Z
 
-SELECT
-  account_id,
-  DATE(updated_at) AS event_date,
-  SUM(score) AS total
-FROM `project.dataset.shipments`
-WHERE updated_at >= '2025-01-01'
-  AND updated_at < '2025-07-28'
-GROUP BY 1, 2
+SELECT shipments.shipment_id, shipments.order_id, shipments.warehouse_id
+FROM `project.dataset.shipments` AS shipments
+JOIN `project.dataset.warehouses` AS warehouses
+  ON shipments.warehouse_id = warehouses.warehouse_id
+JOIN `project.dataset.carriers` AS carriers
+  ON shipments.carrier_id = carriers.carrier_id

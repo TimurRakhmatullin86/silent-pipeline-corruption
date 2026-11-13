@@ -1,16 +1,16 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_010
--- Generated: 2025-09-15T08:00:00Z
-
--- Task: bq_010
--- This query payments analysis
+-- Generated: 2025-08-10T12:29:28Z
 
 SELECT
-  a.session_id,
-  b.ts,
-  SUM(a.clicks) AS total
-FROM `project.dataset.payments` a
-JOIN `project.dataset.subscriptions` b
-  ON a.session_id = b.session_id
-WHERE a._PARTITIONTIME >= TIMESTAMP('2025-05-01')
-GROUP BY 1, 2
+  register_sales.store_id,
+  register_sales.register_id,
+  register_sales.sale_date,
+  SUM(register_sales.amount) AS total_amount
+FROM `project.dataset.register_sales` AS register_sales
+JOIN `project.dataset.stores` AS stores
+  ON register_sales.store_id = stores.store_id
+WHERE register_sales.sale_date >= '2025-01-01'
+  AND register_sales.sale_date < '2025-07-01'
+GROUP BY 1, 2, 3
+ORDER BY 1

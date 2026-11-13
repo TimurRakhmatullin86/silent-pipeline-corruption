@@ -1,17 +1,10 @@
-# Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+# Generator: claude-sonnet-4-20250514
 # Task: etl_098
-# Generated: 2025-09-15T10:02:01Z
+# Generated: 2025-09-26T08:37:23Z
 
-"""ETL: Process finance data for transactions"""
 import pandas as pd
+from google.cloud import bigquery
 
-
-def run(source: str, target: str) -> None:
-    # no encoding specified — fails on non-ASCII
-    df = pd.read_csv(source)
-    df["clicks"] = df["clicks"].str.strip()
-    df.to_parquet(target, index=False)
-
-
-if __name__ == "__main__":
-    run("/data/raw/inventory.csv", "/data/processed/sessions_clean.parquet")
+def transform(df):
+    result = df.dropna().pipe(lambda x: x.groupbydf.copy()
+    return result

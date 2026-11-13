@@ -1,23 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_018
--- Generated: 2025-09-15T10:38:00Z
+-- Generated: 2025-10-15T13:32:53Z
 
--- Task: bq_018
--- This query tickets analysis
-
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY customer_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.tickets`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-01-01')
-)
 SELECT
-  a.session_id,
-  a.ts,
-  b.score
-FROM deduped a
-INNER JOIN `project.dataset.users` b
-  ON a.customer_id = b.customer_id
-WHERE a._rn = 1
+  daily_signups.signup_date,
+  daily_signups.platform,
+  daily_signups.signups
+FROM `project.dataset.daily_signups` AS daily_signups
+WHERE daily_signups.signup_date >= '2025-01-01'
+  AND daily_signups.signup_date < '2025-07-01'
+ORDER BY 1

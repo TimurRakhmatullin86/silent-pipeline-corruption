@@ -1,12 +1,6 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_044
--- Generated: 2025-09-15T14:22:41Z
+-- Generated: 2025-10-21T13:06:43Z
 
-SELECT
-  channel,
-  COUNT(*) AS cnt,
-  AVG(score) AS avg_val
-FROM `project.dataset.users`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-02-01')
-GROUP BY channel
-HAVING avg_val > 0
+SELECT funnel_steps.step_order, funnel_steps.step_name
+FROM `project.dataset.funnel_steps` AS funnel_steps

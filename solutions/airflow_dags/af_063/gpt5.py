@@ -1,44 +1,57 @@
-# Generator: GPT-5 (gpt-5-2025-08-07)
+# Generator: gpt-5-2025-08-07
 # Task: af_063
-# Generated: 2025-09-15T14:42:00Z
+# Generated: 2025-09-24T09:27:38Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
-from datetime import timedelta
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
+from datetime import datetime, timedelta
 
 default_args = {
-    "owner": "data-eng",
-    "retries": 2,
-    "retry_delay": timedelta(minutes=5),
-    "on_failure_callback": lambda ctx: notify(ctx),
-    "email_on_failure": True,
+    'owner': 'data-engineering',
+    'depends_on_past': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': False,
 }
 
 with DAG(
-    dag_id="pipeline_finance_af_063",
+    dag_id='af_063_pipeline',
     default_args=default_args,
-    schedule_interval="0 */6 * * *",
-    start_date=days_ago(1),
-    catchup=False,
-    tags=["finance"],
+    schedule_interval='@daily',
+    start_date=datetime(2025, 1, 1),
+    tags=['data-pipeline', 'airflow_dag'],
 ) as dag:
 
-    def process_finance_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/finance/input.csv", dtype={"id": str})
-        df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce")
-        df = df.dropna(subset=["quantity"])
-        df.to_parquet("gs://data-lake/processed/finance/output.parquet", index=False)
-
-    extract = PythonOperator(
-        task_id="extract_finance",
-        python_callable=process_finance_data,
+    process_source = BigQueryInsertJobOperator(
+        task_id='process_source',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.source`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    validate = PythonOperator(
-        task_id="validate_finance",
-        python_callable=lambda **kw: True,
+    process_scratch_table = BigQueryInsertJobOperator(
+        task_id='process_scratch_table',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.scratch_table`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    extract >> validate
+    process_target = BigQueryInsertJobOperator(
+        task_id='process_target',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.target`",
+                "useLegacySql": False,
+            }
+        }
+    )
+
+    process_source >> process_scratch_table
+    process_scratch_table >> process_target

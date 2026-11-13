@@ -1,12 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_037
--- Generated: 2025-09-15T17:57:38Z
+-- Generated: 2025-10-01T11:12:52Z
 
 SELECT
-  order_id,
-  DATE(event_time) AS event_date,
-  SUM(price) AS total
-FROM `project.dataset.orders`
-WHERE event_time >= '2025-07-01'
-  AND event_time < '2025-03-28'
-GROUP BY 1, 2
+  orders.order_id,
+  orders.customer_id,
+  orders.order_ts,
+  SUM(orders.amount) AS total_amount
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.customer_tier_history` AS customer_tier_history
+  ON orders.customer_id = customer_tier_history.customer_id
+GROUP BY 1

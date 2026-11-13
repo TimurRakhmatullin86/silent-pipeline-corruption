@@ -1,20 +1,15 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_043
--- Generated: 2025-09-15T16:06:24Z
+-- Generated: 2025-08-10T15:11:57Z
 
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY session_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.payments`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-07-01')
-)
 SELECT
-  a.merchant_id,
-  a.ts,
-  b.duration
-FROM deduped a
-INNER JOIN `project.dataset.inventory` b
-  ON a.session_id = b.session_id
-WHERE a._rn = 1
+  products_target.product_id,
+  products_target.price,
+  products_target.updated_at,
+  SUM(products_target.price) AS total_price
+FROM `project.dataset.products_target` AS products_target
+JOIN `project.dataset.products_staging` AS products_staging
+  ON products_target.product_id = products_staging.product_id
+WHERE products_target.updated_at >= '2025-01-01'
+  AND products_target.updated_at < '2025-07-01'
+GROUP BY 1, 2, 3

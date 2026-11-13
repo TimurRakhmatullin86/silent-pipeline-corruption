@@ -1,10 +1,15 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_051
--- Generated: 2025-09-15T19:39:06Z
+-- Generated: 2025-09-15T17:27:17Z
 
 SELECT
-  customer_id,
-  DATEADD(day, 7, created_at) AS next_week,
-  ISNULL(duration, 0) AS safe_metric
-FROM `project.dataset.clicks`
-WHERE created_at >= '2025-05-01'
+  product_snapshots.snapshot_date,
+  product_snapshots.product_id,
+  product_snapshots.price,
+  SUM(product_snapshots.price) AS total_price
+FROM `project.dataset.product_snapshots` AS product_snapshots
+JOIN `project.dataset.snapshot_runs` AS snapshot_runs
+  ON product_snapshots.snapshot_date = snapshot_runs.snapshot_date
+WHERE product_snapshots.snapshot_date >= '2025-01-01'
+  AND product_snapshots.snapshot_date < '2025-07-01'
+GROUP BY 1, 2, 3

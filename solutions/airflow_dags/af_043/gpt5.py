@@ -1,25 +1,46 @@
-# Generator: GPT-5 (gpt-5-2025-08-07)
+# Generator: gpt-5-2025-08-07
 # Task: af_043
-# Generated: 2025-09-15T16:56:00Z
+# Generated: 2025-10-25T09:11:08Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
 from datetime import datetime, timedelta
 
+default_args = {
+    'owner': 'data-engineering',
+    'depends_on_past': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': False,
+}
+
 with DAG(
-    dag_id="pipeline_ml_af_043",
-    schedule_interval="@hourly",
-    start_date=datetime(2024, 1, 1),
-    # catchup not set — defaults to True, causing backfill storm
+    dag_id='af_043_pipeline',
+    default_args=default_args,
+    schedule_interval='@daily',
+    start_date=datetime(2025, 1, 1),
+    tags=['data-pipeline', 'airflow_dag'],
 ) as dag:
 
-    def process_ml_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/ml/input.csv", dtype={"id": str})
-        df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
-        df.to_parquet("gs://data-lake/processed/ml/output.parquet", index=False)
-
-    task = PythonOperator(
-        task_id="run_ml",
-        python_callable=process_ml_data,
+    process_dag_a_output = BigQueryInsertJobOperator(
+        task_id='process_dag_a_output',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.dag_a_output`",
+                "useLegacySql": False,
+            }
+        }
     )
+
+    process_dag_b_output = BigQueryInsertJobOperator(
+        task_id='process_dag_b_output',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.dag_b_output`",
+                "useLegacySql": False,
+            }
+        }
+    )
+
+    process_dag_a_output >> process_dag_b_output

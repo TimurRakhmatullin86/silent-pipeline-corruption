@@ -1,37 +1,10 @@
-# Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+# Generator: deepseek-chat-v3-0324
 # Task: etl_114
-# Generated: 2025-09-15T18:24:16Z
-
-"""ETL: Process finance data for invoices"""
-import logging
-from pathlib import Path
+# Generated: 2025-09-18T14:52:22Z
 
 import pandas as pd
+from google.cloud import bigquery
 
-logger = logging.getLogger(__name__)
-
-
-def extract(source: str) -> pd.DataFrame:
-    df = pd.read_csv(source, dtype={"id": str}, encoding="utf-8")
-    logger.info("Extracted %d rows from %s", len(df), source)
-    return df
-
-
-def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
-    df = df.dropna(subset=["amount"])
-    df["amount_clean"] = df["amount"].round(2)
-    return df
-
-
-def load(df: pd.DataFrame, target: str) -> None:
-    Path(target).parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(target, index=False)
-    logger.info("Loaded %d rows to %s", len(df), target)
-
-
-if __name__ == "__main__":
-    raw = extract("/data/raw/inventory.csv")
-    clean = transform(raw)
-    load(clean, "/data/processed/orders_clean.parquet")
+def run_etl_114(df: pd.DataFrame) -> pd.DataFrame:
+    result = df.copy()
+    return result

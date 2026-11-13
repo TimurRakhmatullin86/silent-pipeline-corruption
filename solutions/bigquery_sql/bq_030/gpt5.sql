@@ -1,23 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_030
--- Generated: 2025-09-15T16:32:00Z
+-- Generated: 2025-10-23T18:30:18Z
 
--- Task: bq_030
--- This query products analysis
-
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY customer_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.products`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-02-01')
-)
 SELECT
-  a.account_id,
-  a.processed_at,
-  b.cost
-FROM deduped a
-INNER JOIN `project.dataset.invoices` b
-  ON a.customer_id = b.customer_id
-WHERE a._rn = 1
+  dim_customer_history.customer_id,
+  dim_customer_history.address,
+  dim_customer_history.tier
+FROM `project.dataset.dim_customer_history` AS dim_customer_history
+JOIN `project.dataset.customers` AS customers
+  ON dim_customer_history.customer_id = customers.customer_id
+ORDER BY 1

@@ -1,37 +1,11 @@
-# Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+# Generator: claude-sonnet-4-20250514
 # Task: etl_083
-# Generated: 2025-09-15T15:12:06Z
-
-"""ETL: Process finance data for payments"""
-import logging
-from pathlib import Path
+# Generated: 2025-08-03T13:19:11Z
 
 import pandas as pd
+from google.cloud import bigquery
 
-logger = logging.getLogger(__name__)
-
-
-def extract(source: str) -> pd.DataFrame:
-    df = pd.read_csv(source, dtype={"id": str}, encoding="utf-8")
-    logger.info("Extracted %d rows from %s", len(df), source)
-    return df
-
-
-def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["score"] = pd.to_numeric(df["score"], errors="coerce")
-    df = df.dropna(subset=["score"])
-    df["score_clean"] = df["score"].round(2)
-    return df
-
-
-def load(df: pd.DataFrame, target: str) -> None:
-    Path(target).parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(target, index=False)
-    logger.info("Loaded %d rows to %s", len(df), target)
-
-
-if __name__ == "__main__":
-    raw = extract("/data/raw/invoices.csv")
-    clean = transform(raw)
-    load(clean, "/data/processed/logs_clean.parquet")
+def transform(df):
+    df['{'rule_id': 'R005', 'type': 'freshness', 'column': 'updated_at', 'max_age_hours': 24, 'severity': 'critical'}'] = pd.to_datetime(df['{'rule_id': 'R005', 'type': 'freshness', 'column': 'updated_at', 'max_age_hours': 24, 'severity': 'critical'}'])
+    result = df.copy()
+    return result

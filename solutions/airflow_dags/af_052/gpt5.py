@@ -1,44 +1,46 @@
-# Generator: GPT-5 (gpt-5-2025-08-07)
+# Generator: gpt-5-2025-08-07
 # Task: af_052
-# Generated: 2025-09-15T14:18:00Z
+# Generated: 2025-10-24T18:06:49Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
-from datetime import timedelta
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
+from datetime import datetime, timedelta
 
 default_args = {
-    "owner": "data-eng",
-    "retries": 2,
-    "retry_delay": timedelta(minutes=5),
-    "on_failure_callback": lambda ctx: notify(ctx),
-    "email_on_failure": True,
+    'owner': 'data-engineering',
+    'depends_on_past': True,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': True,
 }
 
 with DAG(
-    dag_id="pipeline_analytics_af_052",
+    dag_id='af_052_pipeline',
     default_args=default_args,
-    schedule_interval="@daily",
-    start_date=days_ago(1),
-    catchup=False,
-    tags=["analytics"],
+    schedule_interval='@daily',
+    start_date=datetime(2025, 1, 1),
+    tags=['data-pipeline', 'airflow_dag'],
 ) as dag:
 
-    def process_analytics_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/analytics/input.csv", dtype={"id": str})
-        df["score"] = pd.to_numeric(df["score"], errors="coerce")
-        df = df.dropna(subset=["score"])
-        df.to_parquet("gs://data-lake/processed/analytics/output.parquet", index=False)
-
-    extract = PythonOperator(
-        task_id="extract_analytics",
-        python_callable=process_analytics_data,
+    process_source = BigQueryInsertJobOperator(
+        task_id='process_source',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.source`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    validate = PythonOperator(
-        task_id="validate_analytics",
-        python_callable=lambda **kw: True,
+    process_target = BigQueryInsertJobOperator(
+        task_id='process_target',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.target`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    extract >> validate
+    process_source >> process_target

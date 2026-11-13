@@ -1,12 +1,7 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_065
--- Generated: 2025-09-15T12:54:27Z
+-- Generated: 2025-08-27T16:20:42Z
 
-SELECT
-  channel,
-  COUNT(*) AS cnt,
-  AVG(clicks) AS avg_val
-FROM `project.dataset.sessions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-06-01')
-GROUP BY channel
-HAVING avg_val > 0
+SELECT mrr_snapshots.customer_id, mrr_snapshots.snapshot_month, mrr_snapshots.mrr
+FROM `project.dataset.mrr_snapshots` AS mrr_snapshots
+CROSS JOIN `project.dataset.customers` AS customers

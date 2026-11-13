@@ -1,25 +1,51 @@
-# Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+# Generator: deepseek-chat-v3-0324
 # Task: af_064
-# Generated: 2025-09-15T19:51:54Z
+# Generated: 2025-09-14T13:35:48Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
 from datetime import datetime, timedelta
 
-with DAG(
-    dag_id="pipeline_marketing_af_064",
-    schedule_interval="@daily",
-    start_date=datetime(2024, 1, 1),
-    # catchup not set — defaults to True, causing backfill storm
-) as dag:
+default_args = {
+    'owner': 'data-engineering',
+    'depends_on_past': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': False,
+}
 
-    def process_marketing_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/marketing/input.csv", dtype={"id": str})
-        df["revenue"] = pd.to_numeric(df["revenue"], errors="coerce")
-        df.to_parquet("gs://data-lake/processed/marketing/output.parquet", index=False)
+with DAG('af_064_pipeline', default_args=default_args, schedule='@daily', start_date=datetime(2025, 1, 1)) as dag:
 
-    task = PythonOperator(
-        task_id="run_marketing",
-        python_callable=process_marketing_data,
+    process_source = BigQueryInsertJobOperator(
+        task_id='process_source',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.source`",
+                "useLegacySql": False,
+            }
+        }
     )
+
+    process_staging_table = BigQueryInsertJobOperator(
+        task_id='process_staging_table',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.staging_table`",
+                "useLegacySql": False,
+            }
+        }
+    )
+
+    process_dead_letter_table = BigQueryInsertJobOperator(
+        task_id='process_dead_letter_table',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.dead_letter_table`",
+                "useLegacySql": False,
+            }
+        }
+    )
+
+    process_source >> process_staging_table
+    process_staging_table >> process_dead_letter_table

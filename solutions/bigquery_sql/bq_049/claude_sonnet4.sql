@@ -1,21 +1,9 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_049
--- Generated: 2025-09-15T14:34:17Z
+-- Generated: 2025-10-12T18:50:11Z
 
-WITH base AS (
-  SELECT
-    campaign_id,
-    ts,
-    amount
-  FROM `project.dataset.transactions`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-05-01')
-    AND campaign_id IS NOT NULL
-)
 SELECT
-  campaign_id,
-  COUNT(DISTINCT ts) AS unique_tss,
-  SUM(amount) AS total_amount,
-  AVG(amount) AS avg_amount
-FROM base
-GROUP BY campaign_id
-ORDER BY total_amount DESC
+  visits.status, visits.visit_id, visits.patient_id, visits.visit_ts
+FROM `project.dataset.visits` AS visits
+JOIN `project.dataset.patients` AS patients
+  ON visits.patient_id = patients.patient_id

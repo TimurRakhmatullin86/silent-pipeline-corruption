@@ -1,17 +1,13 @@
-# Generator: GPT-5 (gpt-5-2025-08-07)
+# Generator: gpt-5-2025-08-07
 # Task: etl_105
-# Generated: 2025-09-15T15:43:00Z
+# Generated: 2025-08-21T09:28:22Z
 
-"""ETL: Process ops data for tickets"""
 import pandas as pd
+from google.cloud import bigquery
 
-
-def run(source: str, target: str) -> None:
-    # no encoding specified — fails on non-ASCII
-    df = pd.read_csv(source)
-    df["revenue"] = df["revenue"].str.strip()
-    df.to_parquet(target, index=False)
-
-
-if __name__ == "__main__":
-    run("/data/raw/logs.csv", "/data/processed/tickets_clean.parquet")
+def transform_etl_105(source_df: pd.DataFrame) -> pd.DataFrame:
+    """Process Write a Python ETL script (requests + pandas) for saas_metri."""
+    source_df['created_at'] = pd.to_datetime(source_df['created_at'])
+    result = source_df.copy()
+    result.columns = [c.lower().replace(' ', '_') for c in result.columns]
+    return result

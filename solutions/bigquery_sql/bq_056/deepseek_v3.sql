@@ -1,12 +1,12 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_056
--- Generated: 2025-09-15T18:24:16Z
+-- Generated: 2025-10-13T18:12:20Z
 
 SELECT
-  user_id,
-  COUNT(*) AS cnt,
-  AVG(duration) AS avg_val
-FROM `project.dataset.campaigns`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-08-01')
-GROUP BY user_id
-HAVING avg_val > 0
+  user_activity.user_id,
+  user_activity.activity_date
+FROM `project.dataset.user_activity` AS user_activity
+JOIN `project.dataset.users` AS users
+  ON user_activity.user_id = users.user_id
+WHERE user_activity.activity_date >= '2025-01-01'
+  AND user_activity.activity_date <= '2025-07-01'

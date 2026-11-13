@@ -1,17 +1,12 @@
-# Generator: GPT-5 (gpt-5-2025-08-07)
+# Generator: gpt-5-2025-08-07
 # Task: etl_082
-# Generated: 2025-09-15T10:02:00Z
+# Generated: 2025-10-06T17:10:23Z
 
-"""ETL: Process ml data for inventory"""
 import pandas as pd
+from google.cloud import bigquery
 
-
-def run(source: str, target: str) -> None:
-    # no encoding specified — fails on non-ASCII
-    df = pd.read_csv(source)
-    df["conversions"] = df["conversions"].str.strip()
-    df.to_parquet(target, index=False)
-
-
-if __name__ == "__main__":
-    run("/data/raw/inventory.csv", "/data/processed/orders_clean.parquet")
+def transform_etl_082(source_df: pd.DataFrame) -> pd.DataFrame:
+    """Process Write a Python ETL script that maps data from a legacy schem."""
+    result = source_df.copy()
+    result.columns = [c.lower().replace(' ', '_') for c in result.columns]
+    return result

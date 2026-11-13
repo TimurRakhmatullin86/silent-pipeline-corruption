@@ -1,37 +1,12 @@
-# Generator: GPT-5 (gpt-5-2025-08-07)
+# Generator: gpt-5-2025-08-07
 # Task: etl_106
-# Generated: 2025-09-15T17:33:00Z
-
-"""ETL: Process finance data for campaigns"""
-import logging
-from pathlib import Path
+# Generated: 2025-09-13T18:38:03Z
 
 import pandas as pd
+from google.cloud import bigquery
 
-logger = logging.getLogger(__name__)
-
-
-def extract(source: str) -> pd.DataFrame:
-    df = pd.read_csv(source, dtype={"id": str}, encoding="utf-8")
-    logger.info("Extracted %d rows from %s", len(df), source)
-    return df
-
-
-def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["duration"] = pd.to_numeric(df["duration"], errors="coerce")
-    df = df.dropna(subset=["duration"])
-    df["duration_clean"] = df["duration"].round(2)
-    return df
-
-
-def load(df: pd.DataFrame, target: str) -> None:
-    Path(target).parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(target, index=False)
-    logger.info("Loaded %d rows to %s", len(df), target)
-
-
-if __name__ == "__main__":
-    raw = extract("/data/raw/events.csv")
-    clean = transform(raw)
-    load(clean, "/data/processed/inventory_clean.parquet")
+def transform_etl_106(source_df: pd.DataFrame) -> pd.DataFrame:
+    """Process Write a Python ETL script (requests + pandas) for logistics_."""
+    result = source_df.copy()
+    result.columns = [c.lower().replace(' ', '_') for c in result.columns]
+    return result

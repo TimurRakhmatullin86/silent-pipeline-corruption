@@ -1,12 +1,11 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_064
--- Generated: 2025-09-15T15:15:10Z
+-- Generated: 2025-08-14T09:20:42Z
 
 SELECT
-  session_id,
-  DATE(created_at) AS event_date,
-  SUM(revenue) AS total
-FROM `project.dataset.subscriptions`
-WHERE created_at >= '2025-08-01'
-  AND created_at < '2025-01-28'
-GROUP BY 1, 2
+  device_events.event_id,
+  device_events.device_id,
+  device_events.event_name
+FROM `project.dataset.device_events` AS device_events
+JOIN `project.dataset.identity_map` AS identity_map
+  ON device_events.device_id = identity_map.device_id

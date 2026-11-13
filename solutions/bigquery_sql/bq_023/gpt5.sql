@@ -1,24 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_023
--- Generated: 2025-09-15T10:14:00Z
+-- Generated: 2025-10-07T12:29:32Z
 
--- Task: bq_023
--- This query products analysis
-
-WITH base AS (
-  SELECT
-    account_id,
-    ts,
-    cost
-  FROM `project.dataset.products`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-03-01')
-    AND account_id IS NOT NULL
-)
 SELECT
-  account_id,
-  COUNT(DISTINCT ts) AS unique_tss,
-  SUM(cost) AS total_cost,
-  AVG(cost) AS avg_cost
-FROM base
-GROUP BY account_id
-ORDER BY total_cost DESC
+  users.user_id,
+  users.signup_date,
+  users.country
+FROM `project.dataset.users` AS users
+JOIN `project.dataset.activity_log` AS activity_log
+  ON users.user_id = activity_log.user_id
+WHERE users.signup_date >= '2025-01-01'
+  AND users.signup_date < '2025-07-01'
+ORDER BY 1

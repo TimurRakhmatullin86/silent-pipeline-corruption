@@ -1,13 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_064
--- Generated: 2025-09-15T13:05:00Z
-
--- Task: bq_064
--- This query subscriptions analysis
+-- Generated: 2025-08-19T11:38:32Z
 
 SELECT
-  session_id,
-  DATEADD(day, 7, created_at) AS next_week,
-  ISNULL(revenue, 0) AS safe_metric
-FROM `project.dataset.subscriptions`
-WHERE created_at >= '2025-08-01'
+  device_events.event_id,
+  device_events.device_id,
+  device_events.event_name
+FROM `project.dataset.device_events` AS device_events
+JOIN `project.dataset.identity_map` AS identity_map
+  ON device_events.device_id = identity_map.device_id
+ORDER BY 1

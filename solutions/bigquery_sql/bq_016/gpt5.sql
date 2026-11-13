@@ -1,23 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_016
--- Generated: 2025-09-15T08:12:00Z
-
--- Task: bq_016
--- This query transactions analysis
+-- Generated: 2025-09-04T10:16:58Z
 
 SELECT
-  user_id,
-  updated_at,
-  quantity,
-  ROW_NUMBER() OVER (
-    PARTITION BY user_id
-    ORDER BY quantity DESC
-  ) AS rn,
-  SUM(quantity) OVER (
-    PARTITION BY user_id
-    ORDER BY updated_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.transactions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-02-01')
-  AND user_id IS NOT NULL
+  web_events.event_id,
+  web_events.session_id,
+  web_events.event_name
+FROM `project.dataset.web_events` AS web_events
+JOIN `project.dataset.sessions` AS sessions
+  ON web_events.session_id = sessions.session_id
+ORDER BY 1

@@ -1,15 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_024
--- Generated: 2025-09-15T19:35:00Z
-
--- Task: bq_024
--- This query logs analysis
+-- Generated: 2025-08-18T14:29:23Z
 
 SELECT
-  account_id,
-  COUNT(*) AS cnt,
-  AVG(quantity) AS avg_val
-FROM `project.dataset.logs`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-07-01')
-GROUP BY account_id
-HAVING avg_val > 0
+  sessions.session_id,
+  sessions.user_id,
+  sessions.device
+FROM `project.dataset.sessions` AS sessions
+JOIN `project.dataset.checkout_events` AS checkout_events
+  ON sessions.session_id = checkout_events.session_id
+ORDER BY 1

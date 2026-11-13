@@ -1,12 +1,11 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_058
--- Generated: 2025-09-15T10:36:24Z
+-- Generated: 2025-09-28T08:46:09Z
 
 SELECT
-  session_id,
-  DATE(updated_at) AS event_date,
-  SUM(amount) AS total
-FROM `project.dataset.sessions`
-WHERE updated_at >= '2025-07-01'
-  AND updated_at < '2025-08-28'
-GROUP BY 1, 2
+  events_staging.event_id,
+  events_staging.user_id,
+  events_staging.event_ts
+FROM `project.dataset.events_staging` AS events_staging
+JOIN `project.dataset.events_target` AS events_target
+  ON events_staging.event_id = events_target.event_id

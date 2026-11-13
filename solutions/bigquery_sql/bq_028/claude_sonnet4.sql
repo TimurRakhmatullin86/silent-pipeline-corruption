@@ -1,21 +1,8 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_028
--- Generated: 2025-09-15T16:14:07Z
+-- Generated: 2025-08-24T16:18:20Z
 
-WITH base AS (
-  SELECT
-    session_id,
-    event_time,
-    revenue
-  FROM `project.dataset.sessions`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-07-01')
-    AND session_id IS NOT NULL
-)
-SELECT
-  session_id,
-  COUNT(DISTINCT event_time) AS unique_event_times,
-  SUM(revenue) AS total_revenue,
-  AVG(revenue) AS avg_revenue
-FROM base
-GROUP BY session_id
-ORDER BY total_revenue DESC
+SELECT subscriber_snapshots.snapshot_month, subscriber_snapshots.plan_id, subscriber_snapshots.active_subscribers
+FROM `project.dataset.subscriber_snapshots` AS subscriber_snapshots
+JOIN `project.dataset.plans` AS plans
+  ON subscriber_snapshots.plan_id = plans.plan_id

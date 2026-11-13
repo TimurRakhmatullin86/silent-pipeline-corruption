@@ -1,12 +1,10 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_067
--- Generated: 2025-09-15T15:27:58Z
+-- Generated: 2025-10-29T18:25:08Z
 
 SELECT
-  campaign_id,
-  DATE(ts) AS event_date,
-  SUM(duration) AS total
-FROM `project.dataset.clicks`
-WHERE ts >= '2025-02-01'
-  AND ts < '2025-05-28'
-GROUP BY 1, 2
+  logins.login_id,
+  logins.player_id,
+  logins.login_ts
+FROM `project.dataset.logins` AS logins
+CROSS JOIN `project.dataset.players` AS players

@@ -1,13 +1,10 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_019
--- Generated: 2025-09-15T10:38:49Z
+-- Generated: 2025-10-12T17:05:56Z
 
-SELECT
-  a.user_id,
-  b.ts,
-  SUM(a.conversions) AS total
-FROM `project.dataset.clicks` a
-JOIN `project.dataset.transactions` b
-  ON a.user_id = b.user_id
-WHERE a._PARTITIONTIME >= TIMESTAMP('2025-04-01')
-GROUP BY 1, 2
+SELECT employees.employee_id, employees.full_name, employees.manager_id
+FROM `project.dataset.employees` AS employees
+JOIN `project.dataset.departments` AS departments
+  ON employees.department_id = departments.department_id
+WHERE employees.termination_date >= '2025-01-01'
+  AND employees.termination_date < '2025-07-01'

@@ -1,23 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_007
--- Generated: 2025-09-15T19:11:00Z
-
--- Task: bq_007
--- This query transactions analysis
+-- Generated: 2025-09-18T16:33:26Z
 
 SELECT
-  channel,
-  updated_at,
-  quantity,
-  ROW_NUMBER() OVER (
-    PARTITION BY channel
-    ORDER BY quantity DESC
-  ) AS rn,
-  SUM(quantity) OVER (
-    PARTITION BY channel
-    ORDER BY updated_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.transactions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-09-01')
-  AND channel IS NOT NULL
+  orders.order_id,
+  orders.channel,
+  orders.order_ts,
+  SUM(orders.total_amount) AS total_total_amount
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.order_items` AS order_items
+  ON orders.order_id = order_items.order_id
+GROUP BY 1, 2, 3
+ORDER BY 1

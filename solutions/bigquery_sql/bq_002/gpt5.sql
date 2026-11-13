@@ -1,23 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_002
--- Generated: 2025-09-15T15:19:00Z
-
--- Task: bq_002
--- This query events analysis
+-- Generated: 2025-08-18T08:35:59Z
 
 SELECT
-  channel,
-  processed_at,
-  revenue,
-  ROW_NUMBER() OVER (
-    PARTITION BY channel
-    ORDER BY revenue DESC
-  ) AS rn,
-  SUM(revenue) OVER (
-    PARTITION BY channel
-    ORDER BY processed_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.events`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-08-01')
-  AND channel IS NOT NULL
+  orders.order_id,
+  orders.customer_id,
+  orders.order_date
+FROM `project.dataset.orders` AS orders
+WHERE orders.order_date >= '2025-01-01'
+  AND orders.order_date < '2025-07-01'
+ORDER BY 1

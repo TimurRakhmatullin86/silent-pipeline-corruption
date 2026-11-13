@@ -1,20 +1,45 @@
 {
-  "total_solutions": 450,
-  "correct": 258,
-  "correct_rate": 0.573,
-  "error_distribution": {
-    "FM2": 33,
-    "FM1": 38,
-    "FM3": 48,
-    "FM4": 14,
-    "FM7": 27,
-    "FM6": 27,
-    "FM5": 5
-  },
+  "generated_at": "2025-10-15T12:00:00Z",
   "seed": 42,
-  "generators": {
-    "gpt5": "GPT-5 (gpt-5-2025-08-07)",
-    "claude_sonnet4": "Claude Sonnet 4 (claude-sonnet-4-20250514)",
-    "deepseek_v3": "DeepSeek-V3 (deepseek-chat-v3-0324)"
+  "total_solutions": 450,
+  "correct": 243,
+  "incorrect": 207,
+  "correctness_rate": 0.54,
+  "by_generator": {
+    "gpt5": {
+      "correct": 91,
+      "incorrect": 59
+    },
+    "claude_sonnet4": {
+      "correct": 76,
+      "incorrect": 74
+    },
+    "deepseek_v3": {
+      "correct": 76,
+      "incorrect": 74
+    }
+  },
+  "by_category": {
+    "bigquery_sql": {
+      "correct": 117,
+      "incorrect": 93
+    },
+    "airflow_dags": {
+      "correct": 62,
+      "incorrect": 58
+    },
+    "etl_scripts": {
+      "correct": 64,
+      "incorrect": 56
+    }
+  },
+  "failure_mode_distribution": {
+    "FM1": 46,
+    "FM2": 39,
+    "FM3": 29,
+    "FM4": 28,
+    "FM5": 19,
+    "FM6": 26,
+    "FM7": 20
   }
 }

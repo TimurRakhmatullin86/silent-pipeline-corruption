@@ -1,12 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_063
--- Generated: 2025-09-15T18:00:40Z
+-- Generated: 2025-09-29T19:19:41Z
 
 SELECT
-  order_id,
-  DATE(created_at) AS event_date,
-  SUM(amount) AS total
-FROM `project.dataset.invoices`
-WHERE created_at >= '2025-05-01'
-  AND created_at < '2025-05-28'
-GROUP BY 1, 2
+  players.player_id,
+  players.signup_date,
+  players.platform
+FROM `project.dataset.players` AS players
+JOIN `project.dataset.player_activity` AS player_activity
+  ON players.player_id = player_activity.player_id
+WHERE players.signup_date >= '2025-01-01'
+  AND players.signup_date < '2025-07-01'

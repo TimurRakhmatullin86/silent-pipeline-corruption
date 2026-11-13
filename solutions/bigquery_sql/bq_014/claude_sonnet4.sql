@@ -1,20 +1,9 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_014
--- Generated: 2025-09-15T15:12:06Z
+-- Generated: 2025-08-08T19:08:33Z
 
 SELECT
-  customer_id,
-  event_time,
-  revenue,
-  ROW_NUMBER() OVER (
-    PARTITION BY customer_id
-    ORDER BY revenue DESC
-  ) AS rn,
-  SUM(revenue) OVER (
-    PARTITION BY customer_id
-    ORDER BY event_time
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.inventory`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-07-01')
-  AND customer_id IS NOT NULL
+  patient_visits.status, patient_visits.visit_id, patient_visits.patient_id, patient_visits.diagnosis_code
+FROM `project.dataset.patient_visits` AS patient_visits
+WHERE patient_visits.load_date >= '2025-01-01'
+  AND patient_visits.load_date < '2025-07-01'

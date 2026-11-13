@@ -1,21 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_008
--- Generated: 2025-09-15T11:15:50Z
+-- Generated: 2025-09-30T12:41:50Z
 
-WITH base AS (
-  SELECT
-    campaign_id,
-    created_at,
-    revenue
-  FROM `project.dataset.orders`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-01-01')
-    AND campaign_id IS NOT NULL
-)
 SELECT
-  campaign_id,
-  COUNT(DISTINCT created_at) AS unique_created_ats,
-  SUM(revenue) AS total_revenue,
-  AVG(revenue) AS avg_revenue
-FROM base
-GROUP BY campaign_id
-ORDER BY total_revenue DESC
+  orders.order_id,
+  orders.customer_id,
+  orders.order_ts,
+  SUM(orders.amount) AS total_amount
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.refunds` AS refunds
+  ON orders.order_id = refunds.order_id
+GROUP BY 1, 2, 3

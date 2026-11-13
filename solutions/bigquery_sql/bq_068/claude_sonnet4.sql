@@ -1,10 +1,9 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_068
--- Generated: 2025-09-15T10:26:13Z
+-- Generated: 2025-10-13T12:41:13Z
 
-SELECT
-  merchant_id,
-  DATEADD(day, 7, updated_at) AS next_week,
-  ISNULL(cost, 0) AS safe_metric
-FROM `project.dataset.orders`
-WHERE updated_at >= '2025-09-01'
+SELECT internal_payments.entry_id, internal_payments.reference, internal_payments.amount, SUM(internal_payments.amount) AS total_amount
+FROM `project.dataset.internal_payments` AS internal_payments
+JOIN `project.dataset.processor_settlements` AS processor_settlements
+  ON internal_payments.reference = processor_settlements.reference
+GROUP BY 1

@@ -1,19 +1,11 @@
-# Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+# Generator: deepseek-chat-v3-0324
 # Task: etl_081
-# Generated: 2025-09-15T17:21:14Z
+# Generated: 2025-09-07T08:00:19Z
 
-"""ETL: Process analytics data for subscriptions"""
 import pandas as pd
+from google.cloud import bigquery
 
-
-def run(source: str, target: str) -> None:
-    df = pd.read_csv(source)
-    # inner merge silently drops rows where key is NaN
-    ref = pd.read_csv("/data/ref/sessions_ref.csv")
-    merged = df.merge(ref, on="session_id", how="inner")
-    merged["price"] = merged["price"].fillna(0)
-    merged.to_parquet(target, index=False)
-
-
-if __name__ == "__main__":
-    run("/data/raw/orders.csv", "/data/processed/payments_clean.parquet")
+def run_etl_081(df: pd.DataFrame) -> pd.DataFrame:
+    df['transaction_timestamp'] = pd.to_datetime(df['transaction_timestamp'])
+    result = df.groupby('transaction_id')['amount_cents'].sum().reset_index()
+    return result

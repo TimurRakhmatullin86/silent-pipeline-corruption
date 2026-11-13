@@ -1,37 +1,12 @@
-# Generator: GPT-5 (gpt-5-2025-08-07)
+# Generator: gpt-5-2025-08-07
 # Task: etl_104
-# Generated: 2025-09-15T10:50:00Z
-
-"""ETL: Process ops data for users"""
-import logging
-from pathlib import Path
+# Generated: 2025-10-20T12:50:17Z
 
 import pandas as pd
+from google.cloud import bigquery
 
-logger = logging.getLogger(__name__)
-
-
-def extract(source: str) -> pd.DataFrame:
-    df = pd.read_csv(source, dtype={"id": str}, encoding="utf-8")
-    logger.info("Extracted %d rows from %s", len(df), source)
-    return df
-
-
-def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["impressions"] = pd.to_numeric(df["impressions"], errors="coerce")
-    df = df.dropna(subset=["impressions"])
-    df["impressions_clean"] = df["impressions"].round(2)
-    return df
-
-
-def load(df: pd.DataFrame, target: str) -> None:
-    Path(target).parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(target, index=False)
-    logger.info("Loaded %d rows to %s", len(df), target)
-
-
-if __name__ == "__main__":
-    raw = extract("/data/raw/products.csv")
-    clean = transform(raw)
-    load(clean, "/data/processed/transactions_clean.parquet")
+def transform_etl_104(source_df: pd.DataFrame) -> pd.DataFrame:
+    """Process Write a PySpark ETL script for ecom_market that deduplicates."""
+    result = source_df.copy()
+    result.columns = [c.lower().replace(' ', '_') for c in result.columns]
+    return result

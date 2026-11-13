@@ -1,23 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_012
--- Generated: 2025-09-15T19:59:00Z
+-- Generated: 2025-08-10T19:03:10Z
 
--- Task: bq_012
--- This query products analysis
-
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY order_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.products`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-04-01')
-)
 SELECT
-  a.order_id,
-  a.created_at,
-  b.cost
-FROM deduped a
-INNER JOIN `project.dataset.transactions` b
-  ON a.order_id = b.order_id
-WHERE a._rn = 1
+  game_events.event_id,
+  game_events.player_id,
+  game_events.event_ts
+FROM `project.dataset.game_events` AS game_events
+JOIN `project.dataset.players` AS players
+  ON game_events.player_id = players.player_id
+ORDER BY 1

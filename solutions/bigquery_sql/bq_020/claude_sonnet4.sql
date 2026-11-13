@@ -1,13 +1,10 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_020
--- Generated: 2025-09-15T19:08:34Z
+-- Generated: 2025-10-30T15:13:39Z
 
-SELECT
-  a.account_id,
-  b.updated_at,
-  SUM(a.amount) AS total
-FROM `project.dataset.payments` a
-JOIN `project.dataset.clicks` b
-  ON a.account_id = b.account_id
-WHERE a._PARTITIONTIME >= TIMESTAMP('2025-09-01')
-GROUP BY 1, 2
+SELECT subscriptions.subscription_id, subscriptions.customer_id, subscriptions.plan_id
+FROM `project.dataset.subscriptions` AS subscriptions
+JOIN `project.dataset.plans` AS plans
+  ON subscriptions.plan_id = plans.plan_id
+WHERE subscriptions.start_date >= '2025-01-01'
+  AND subscriptions.start_date < '2025-07-01'

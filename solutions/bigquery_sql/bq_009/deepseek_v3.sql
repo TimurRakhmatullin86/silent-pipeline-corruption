@@ -1,12 +1,11 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_009
--- Generated: 2025-09-15T09:57:58Z
+-- Generated: 2025-08-19T09:08:17Z
 
 SELECT
-  campaign_id,
-  COUNT(*) AS cnt,
-  AVG(cost) AS avg_val
-FROM `project.dataset.products`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-07-01')
-GROUP BY campaign_id
-HAVING avg_val > 0
+  products.product_id,
+  products.product_name,
+  products.category
+FROM `project.dataset.products` AS products
+JOIN `project.dataset.sales` AS sales
+  ON products.product_id = sales.product_id

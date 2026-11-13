@@ -1,13 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_001
--- Generated: 2025-09-15T16:54:36Z
+-- Generated: 2025-10-24T14:17:00Z
 
 SELECT
-  a.customer_id,
-  b.created_at,
-  SUM(a.duration) AS total
-FROM `project.dataset.inventory` a
-JOIN `project.dataset.subscriptions` b
-  ON a.customer_id = b.customer_id
-WHERE a._PARTITIONTIME >= timestamp('2025-02-01')
-GROUP BY 1, 2
+  orders.order_id,
+  orders.customer_id,
+  orders.order_date
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.order_items` AS order_items
+  ON orders.order_id = order_items.order_id
+WHERE orders.order_date >= '2025-01-01'
+  AND orders.order_date < '2025-07-01'

@@ -1,20 +1,11 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_070
--- Generated: 2025-09-15T10:02:01Z
+-- Generated: 2025-10-19T18:37:35Z
 
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY product_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.sessions`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-04-01')
-)
 SELECT
-  a.session_id,
-  a.event_time,
-  b.impressions
-FROM deduped a
-INNER JOIN `project.dataset.invoices` b
-  ON a.product_id = b.product_id
-WHERE a._rn = 1
+  users.status, users.user_id, users.signup_ts, users.channel
+FROM `project.dataset.users` AS users
+JOIN `project.dataset.payments` AS payments
+  ON users.user_id = payments.user_id
+JOIN `project.dataset.channel_spend` AS channel_spend
+  ON users.channel = channel_spend.channel

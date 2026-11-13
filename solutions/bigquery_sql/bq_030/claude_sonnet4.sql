@@ -1,13 +1,8 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_030
--- Generated: 2025-09-15T17:04:32Z
+-- Generated: 2025-09-29T12:43:34Z
 
-SELECT
-  a.account_id,
-  b.processed_at,
-  SUM(a.cost) AS total
-FROM `project.dataset.products` a
-JOIN `project.dataset.invoices` b
-  ON a.account_id = b.account_id
-WHERE a._PARTITIONTIME >= TIMESTAMP('2025-02-01')
-GROUP BY 1, 2
+SELECT dim_customer_history.customer_id, dim_customer_history.address, dim_customer_history.tier
+FROM `project.dataset.dim_customer_history` AS dim_customer_history
+JOIN `project.dataset.customers` AS customers
+  ON dim_customer_history.customer_id = customers.customer_id

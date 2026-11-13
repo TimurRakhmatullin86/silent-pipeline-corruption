@@ -1,44 +1,40 @@
-# Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+# Generator: claude-sonnet-4-20250514
 # Task: af_042
-# Generated: 2025-09-15T15:12:06Z
+# Generated: 2025-08-05T10:26:56Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
-from datetime import timedelta
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
+from datetime import datetime, timedelta
 
 default_args = {
-    "owner": "data-eng",
-    "retries": 2,
-    "retry_delay": timedelta(minutes=5),
-    "on_failure_callback": lambda ctx: notify(ctx),
-    "email_on_failure": True,
+    'owner': 'data-engineering',
+    'depends_on_past': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': False,
 }
 
-with DAG(
-    dag_id="pipeline_logistics_af_042",
-    default_args=default_args,
-    schedule_interval="0 */6 * * *",
-    start_date=days_ago(1),
-    catchup=False,
-    tags=["logistics"],
-) as dag:
+dag = DAG('af_042_pipeline', default_args=default_args, schedule_interval='@daily', start_date=datetime(2025, 1, 1))
 
-    def process_logistics_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/logistics/input.csv", dtype={"id": str})
-        df["price"] = pd.to_numeric(df["price"], errors="coerce")
-        df = df.dropna(subset=["price"])
-        df.to_parquet("gs://data-lake/processed/logistics/output.parquet", index=False)
-
-    extract = PythonOperator(
-        task_id="extract_logistics",
-        python_callable=process_logistics_data,
+    process_source_path = BigQueryInsertJobOperator(
+        task_id='process_source_path',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.source_path`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    validate = PythonOperator(
-        task_id="validate_logistics",
-        python_callable=lambda **kw: True,
+    process_target_table = BigQueryInsertJobOperator(
+        task_id='process_target_table',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.target_table`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    extract >> validate
+    process_source_path >> process_target_table

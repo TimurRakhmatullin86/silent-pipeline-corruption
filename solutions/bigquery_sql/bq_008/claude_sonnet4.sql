@@ -1,12 +1,9 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_008
--- Generated: 2025-09-15T10:50:25Z
+-- Generated: 2025-09-03T17:30:12Z
 
-SELECT
-  campaign_id,
-  DATE(created_at) AS event_date,
-  SUM(revenue) AS total
-FROM `project.dataset.orders`
-WHERE created_at >= '2025-01-01'
-  AND created_at < '2025-08-28'
-GROUP BY 1, 2
+SELECT orders.order_id, orders.customer_id, orders.order_ts, SUM(orders.amount) AS total_amount
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.refunds` AS refunds
+  ON orders.order_id = refunds.order_id
+GROUP BY 1, 2, 3

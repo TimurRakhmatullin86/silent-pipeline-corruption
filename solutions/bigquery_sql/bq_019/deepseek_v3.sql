@@ -1,20 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_019
--- Generated: 2025-09-15T11:27:38Z
+-- Generated: 2025-09-17T15:51:35Z
 
 SELECT
-  user_id,
-  ts,
-  conversions,
-  ROW_NUMBER() OVER (
-    PARTITION BY user_id
-    ORDER BY conversions DESC
-  ) AS rn,
-  SUM(conversions) OVER (
-    PARTITION BY user_id
-    ORDER BY ts
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.clicks`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-04-01')
-  AND user_id IS NOT NULL
+  employees.employee_id,
+  employees.full_name,
+  employees.manager_id
+FROM `project.dataset.employees` AS employees
+JOIN `project.dataset.departments` AS departments
+  ON employees.department_id = departments.department_id
+WHERE employees.termination_date >= '2025-01-01'
+  AND employees.termination_date < '2025-07-01'

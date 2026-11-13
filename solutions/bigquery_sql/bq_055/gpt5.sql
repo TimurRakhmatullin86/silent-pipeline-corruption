@@ -1,23 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_055
--- Generated: 2025-09-15T11:39:00Z
+-- Generated: 2025-10-28T14:41:05Z
 
--- Task: bq_055
--- This query products analysis
-
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY order_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.products`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-01-01')
-)
 SELECT
-  a.session_id,
-  a.ts,
-  b.amount
-FROM deduped a
-INNER JOIN `project.dataset.campaigns` b
-  ON a.order_id = b.order_id
-WHERE a._rn = 1
+  purchases_v1.event_uuid,
+  purchases_v1.user_id,
+  purchases_v1.ts,
+  SUM(purchases_v1.amount_cents) AS total_amount_cents
+FROM `project.dataset.purchases_v1` AS purchases_v1
+JOIN `project.dataset.purchases_v2` AS purchases_v2
+  ON purchases_v1.event_uuid = purchases_v2.event_uuid
+GROUP BY 1, 2, 3
+ORDER BY 1

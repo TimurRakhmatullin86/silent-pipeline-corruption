@@ -1,15 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_070
--- Generated: 2025-09-15T09:01:00Z
-
--- Task: bq_070
--- This query sessions analysis
+-- Generated: 2025-09-09T19:21:14Z
 
 SELECT
-  session_id,
-  DATE(event_time) AS event_date,
-  SUM(impressions) AS total
-FROM `project.dataset.sessions`
-WHERE event_time >= '2025-04-01'
-  AND event_time < '2025-05-28'
-GROUP BY 1, 2
+  users.user_id,
+  users.signup_ts,
+  users.channel
+FROM `project.dataset.users` AS users
+JOIN `project.dataset.payments` AS payments
+  ON users.user_id = payments.user_id
+JOIN `project.dataset.channel_spend` AS channel_spend
+  ON users.channel = channel_spend.channel
+ORDER BY 1

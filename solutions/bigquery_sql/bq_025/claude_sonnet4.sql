@@ -1,20 +1,9 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_025
--- Generated: 2025-09-15T10:14:37Z
+-- Generated: 2025-10-17T13:53:59Z
 
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY product_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.payments`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-06-01')
-)
-SELECT
-  a.user_id,
-  a.ts,
-  b.revenue
-FROM deduped a
-INNER JOIN `project.dataset.orders` b
-  ON a.product_id = b.product_id
-WHERE a._rn = 1
+SELECT transactions.txn_id, transactions.amount, transactions.currency, SUM(transactions.amount) AS total_amount
+FROM `project.dataset.transactions` AS transactions
+JOIN `project.dataset.fx_rates` AS fx_rates
+  ON transactions.currency = fx_rates.currency
+GROUP BY 1, 2, 3

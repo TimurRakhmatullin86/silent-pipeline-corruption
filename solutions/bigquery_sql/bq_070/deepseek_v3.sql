@@ -1,13 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_070
--- Generated: 2025-09-15T11:03:02Z
+-- Generated: 2025-08-14T11:27:37Z
 
 SELECT
-  a.session_id,
-  b.event_time,
-  SUM(a.impressions) AS total
-FROM `project.dataset.sessions` a
-JOIN `project.dataset.invoices` b
-  ON a.session_id = b.session_id
-WHERE a._PARTITIONTIME >= TIMESTAMP('2025-04-01')
-GROUP BY 1, 2
+  users.user_id,
+  users.signup_ts,
+  users.channel
+FROM `project.dataset.users` AS users
+JOIN `project.dataset.payments` AS payments
+  ON users.user_id = payments.user_id
+JOIN `project.dataset.channel_spend` AS channel_spend
+  ON users.channel = channel_spend.channel

@@ -1,20 +1,8 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_058
--- Generated: 2025-09-15T09:24:12Z
+-- Generated: 2025-10-31T09:22:59Z
 
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY customer_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.sessions`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-07-01')
-)
-SELECT
-  a.session_id,
-  a.updated_at,
-  b.amount
-FROM deduped a
-INNER JOIN `project.dataset.events` b
-  ON a.customer_id = b.customer_id
-WHERE a._rn = 1
+SELECT events_staging.event_id, events_staging.user_id, events_staging.event_ts
+FROM `project.dataset.events_staging` AS events_staging
+JOIN `project.dataset.events_target` AS events_target
+  ON events_staging.event_id = events_target.event_id

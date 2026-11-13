@@ -1,21 +1,11 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_045
--- Generated: 2025-09-15T08:10:35Z
+-- Generated: 2025-10-22T08:03:30Z
 
-WITH base AS (
-  SELECT
-    customer_id,
-    event_time,
-    clicks
-  FROM `project.dataset.sessions`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-01-01')
-    AND customer_id IS NOT NULL
-)
-SELECT
-  customer_id,
-  COUNT(DISTINCT event_time) AS unique_event_times,
-  SUM(clicks) AS total_clicks,
-  AVG(clicks) AS avg_clicks
-FROM base
-GROUP BY customer_id
-ORDER BY total_clicks DESC
+SELECT raw_lab_results.row_id, raw_lab_results.patient_id, raw_lab_results.result_value, SUM(raw_lab_results.result_value) AS total_result_value
+FROM `project.dataset.raw_lab_results` AS raw_lab_results
+JOIN `project.dataset.lab_units` AS lab_units
+  ON raw_lab_results.unit = lab_units.unit
+WHERE raw_lab_results.result_date >= '2025-01-01'
+  AND raw_lab_results.result_date < '2025-07-01'
+GROUP BY 1, 2, 3

@@ -1,15 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_058
--- Generated: 2025-09-15T08:12:00Z
-
--- Task: bq_058
--- This query sessions analysis
+-- Generated: 2025-10-17T16:27:07Z
 
 SELECT
-  session_id,
-  COUNT(*) AS cnt,
-  AVG(amount) AS avg_val
-FROM `project.dataset.sessions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-07-01')
-GROUP BY session_id
-HAVING avg_val > 0
+  events_staging.event_id,
+  events_staging.user_id,
+  events_staging.event_ts
+FROM `project.dataset.events_staging` AS events_staging
+JOIN `project.dataset.events_target` AS events_target
+  ON events_staging.event_id = events_target.event_id
+ORDER BY 1

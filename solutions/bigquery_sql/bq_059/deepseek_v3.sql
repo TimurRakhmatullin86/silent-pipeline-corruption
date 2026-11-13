@@ -1,20 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_059
--- Generated: 2025-09-15T09:09:46Z
+-- Generated: 2025-10-30T11:44:45Z
 
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY product_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.subscriptions`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-02-01')
-)
 SELECT
-  a.merchant_id,
-  a.processed_at,
-  b.duration
-FROM deduped a
-INNER JOIN `project.dataset.orders` b
-  ON a.product_id = b.product_id
-WHERE a._rn = 1
+  daily_store_orders.store_id,
+  daily_store_orders.metric_date,
+  daily_store_orders.orders
+FROM `project.dataset.daily_store_orders` AS daily_store_orders
+JOIN `project.dataset.stores` AS stores
+  ON daily_store_orders.store_id = stores.store_id
+WHERE daily_store_orders.metric_date >= '2025-01-01'
+  AND daily_store_orders.metric_date < '2025-07-01'

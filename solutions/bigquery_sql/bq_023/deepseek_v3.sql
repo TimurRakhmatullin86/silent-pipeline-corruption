@@ -1,12 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_023
--- Generated: 2025-09-15T12:42:28Z
+-- Generated: 2025-08-07T13:15:08Z
 
 SELECT
-  account_id,
-  DATE(ts) AS event_date,
-  SUM(cost) AS total
-FROM `project.dataset.products`
-WHERE ts >= '2025-03-01'
-  AND ts < '2025-09-28'
-GROUP BY 1, 2
+  users.user_id,
+  users.signup_date,
+  users.country
+FROM `project.dataset.users` AS users
+JOIN `project.dataset.activity_log` AS activity_log
+  ON users.user_id = activity_log.user_id
+WHERE users.signup_date >= '2025-01-01'
+  AND users.signup_date <= '2025-07-01'

@@ -1,20 +1,11 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_061
--- Generated: 2025-09-15T13:09:06Z
+-- Generated: 2025-10-19T15:04:07Z
 
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY order_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.transactions`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-06-01')
-)
 SELECT
-  a.session_id,
-  a.event_time,
-  b.duration
-FROM deduped a
-INNER JOIN `project.dataset.products` b
-  ON a.order_id = b.order_id
-WHERE a._rn = 1
+  checkout_events.event_id,
+  checkout_events.user_id,
+  checkout_events.event_name
+FROM `project.dataset.checkout_events` AS checkout_events
+JOIN `project.dataset.users` AS users
+  ON checkout_events.user_id = users.user_id

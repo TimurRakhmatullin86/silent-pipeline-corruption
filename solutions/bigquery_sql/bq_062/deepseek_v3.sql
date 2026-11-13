@@ -1,13 +1,13 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_062
--- Generated: 2025-09-15T08:18:32Z
+-- Generated: 2025-09-01T08:36:44Z
 
 SELECT
-  a.order_id,
-  b.updated_at,
-  SUM(a.duration) AS total
-FROM `project.dataset.transactions` a
-JOIN `project.dataset.logs` b
-  ON a.order_id = b.order_id
-WHERE a._PARTITIONTIME >= timestamp('2025-06-01')
-GROUP BY 1, 2
+  load_audit.table_name,
+  load_audit.load_date,
+  load_audit.row_count
+FROM `project.dataset.load_audit` AS load_audit
+JOIN `project.dataset.dq_config` AS dq_config
+  ON load_audit.table_name = dq_config.table_name
+WHERE load_audit.load_date >= '2025-01-01'
+  AND load_audit.load_date < '2025-07-01'

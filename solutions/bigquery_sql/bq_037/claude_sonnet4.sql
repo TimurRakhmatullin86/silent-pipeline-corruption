@@ -1,10 +1,8 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_037
--- Generated: 2025-09-15T16:38:19Z
+-- Generated: 2025-09-18T14:42:50Z
 
-SELECT
-  order_id,
-  DATEADD(day, 7, event_time) AS next_week,
-  ISNULL(price, 0) AS safe_metric
-FROM `project.dataset.orders`
-WHERE event_time >= '2025-07-01'
+SELECT orders.order_id, orders.customer_id, orders.order_ts, SUM(orders.amount) AS total_amount
+FROM `project.dataset.orders` AS orders
+CROSS JOIN `project.dataset.customer_tier_history` AS customer_tier_history
+GROUP BY 1, 2, 3

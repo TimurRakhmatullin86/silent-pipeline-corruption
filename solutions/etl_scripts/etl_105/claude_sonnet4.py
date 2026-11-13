@@ -1,37 +1,11 @@
-# Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+# Generator: claude-sonnet-4-20250514
 # Task: etl_105
-# Generated: 2025-09-15T16:26:43Z
-
-"""ETL: Process ops data for tickets"""
-import logging
-from pathlib import Path
+# Generated: 2025-10-17T15:32:09Z
 
 import pandas as pd
+from google.cloud import bigquery
 
-logger = logging.getLogger(__name__)
-
-
-def extract(source: str) -> pd.DataFrame:
-    df = pd.read_csv(source, dtype={"id": str}, encoding="utf-8")
-    logger.info("Extracted %d rows from %s", len(df), source)
-    return df
-
-
-def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["revenue"] = pd.to_numeric(df["revenue"], errors="coerce")
-    df = df.dropna(subset=["revenue"])
-    df["revenue_clean"] = df["revenue"].round(2)
-    return df
-
-
-def load(df: pd.DataFrame, target: str) -> None:
-    Path(target).parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(target, index=False)
-    logger.info("Loaded %d rows to %s", len(df), target)
-
-
-if __name__ == "__main__":
-    raw = extract("/data/raw/logs.csv")
-    clean = transform(raw)
-    load(clean, "/data/processed/tickets_clean.parquet")
+def transform(df):
+    df['created_at'] = pd.to_datetime(df['created_at'])
+    result = df.copy()
+    return result

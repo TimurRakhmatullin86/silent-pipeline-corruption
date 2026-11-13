@@ -1,15 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_014
--- Generated: 2025-09-15T14:06:00Z
-
--- Task: bq_014
--- This query inventory analysis
+-- Generated: 2025-09-04T15:42:27Z
 
 SELECT
-  customer_id,
-  DATE(event_time) AS event_date,
-  SUM(revenue) AS total
-FROM `project.dataset.inventory`
-WHERE event_time >= '2025-07-01'
-  AND event_time < '2025-03-28'
-GROUP BY 1, 2
+  patient_visits.visit_id,
+  patient_visits.patient_id,
+  patient_visits.diagnosis_code
+FROM `project.dataset.patient_visits` AS patient_visits
+WHERE patient_visits.load_date >= '2025-01-01'
+  AND patient_visits.load_date <= '2025-07-01'
+ORDER BY 1

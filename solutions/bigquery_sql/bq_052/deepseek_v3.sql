@@ -1,13 +1,11 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_052
--- Generated: 2025-09-15T16:06:24Z
+-- Generated: 2025-10-12T11:04:53Z
 
 SELECT
-  a.product_id,
-  b.created_at,
-  SUM(a.price) AS total
-FROM `project.dataset.transactions` a
-JOIN `project.dataset.shipments` b
-  ON a.product_id = b.product_id
-WHERE a._PARTITIONTIME >= TIMESTAMP('2025-09-01')
-GROUP BY 1, 2
+  touches.touch_id,
+  touches.user_id,
+  touches.channel
+FROM `project.dataset.touches` AS touches
+JOIN `project.dataset.conversions` AS conversions
+  ON touches.user_id = conversions.user_id

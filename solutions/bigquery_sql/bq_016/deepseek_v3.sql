@@ -1,20 +1,11 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_016
--- Generated: 2025-09-15T10:36:24Z
+-- Generated: 2025-08-25T10:39:54Z
 
 SELECT
-  user_id,
-  updated_at,
-  quantity,
-  ROW_NUMBER() OVER (
-    PARTITION BY user_id
-    ORDER BY quantity DESC
-  ) AS rn,
-  SUM(quantity) OVER (
-    PARTITION BY user_id
-    ORDER BY updated_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.transactions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-02-01')
-  AND user_id IS NOT NULL
+  web_events.event_id,
+  web_events.session_id,
+  web_events.event_name
+FROM `project.dataset.web_events` AS web_events
+JOIN `project.dataset.sessions` AS sessions
+  ON web_events.session_id = sessions.session_id

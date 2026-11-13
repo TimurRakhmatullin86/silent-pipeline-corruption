@@ -1,25 +1,57 @@
-# Generator: GPT-5 (gpt-5-2025-08-07)
+# Generator: gpt-5-2025-08-07
 # Task: af_046
-# Generated: 2025-09-15T09:25:00Z
+# Generated: 2025-08-23T09:42:55Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
 from datetime import datetime, timedelta
 
+default_args = {
+    'owner': 'data-engineering',
+    'depends_on_past': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': False,
+}
+
 with DAG(
-    dag_id="pipeline_ops_af_046",
-    schedule_interval="@daily",
-    start_date=datetime(2024, 1, 1),
-    # catchup not set — defaults to True, causing backfill storm
+    dag_id='af_046_pipeline',
+    default_args=default_args,
+    schedule_interval='@daily',
+    start_date=datetime(2025, 1, 1),
+    tags=['data-pipeline', 'airflow_dag'],
 ) as dag:
 
-    def process_ops_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/ops/input.csv", dtype={"id": str})
-        df["conversions"] = pd.to_numeric(df["conversions"], errors="coerce")
-        df.to_parquet("gs://data-lake/processed/ops/output.parquet", index=False)
-
-    task = PythonOperator(
-        task_id="run_ops",
-        python_callable=process_ops_data,
+    process_source = BigQueryInsertJobOperator(
+        task_id='process_source',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.source`",
+                "useLegacySql": False,
+            }
+        }
     )
+
+    process_landing = BigQueryInsertJobOperator(
+        task_id='process_landing',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.landing`",
+                "useLegacySql": False,
+            }
+        }
+    )
+
+    process_target = BigQueryInsertJobOperator(
+        task_id='process_target',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.target`",
+                "useLegacySql": False,
+            }
+        }
+    )
+
+    process_source >> process_landing
+    process_landing >> process_target

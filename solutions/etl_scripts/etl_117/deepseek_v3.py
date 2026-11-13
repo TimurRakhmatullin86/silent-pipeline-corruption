@@ -1,37 +1,11 @@
-# Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+# Generator: deepseek-chat-v3-0324
 # Task: etl_117
-# Generated: 2025-09-15T09:33:22Z
-
-"""ETL: Process marketing data for orders"""
-import logging
-from pathlib import Path
+# Generated: 2025-08-19T12:02:18Z
 
 import pandas as pd
+from google.cloud import bigquery
 
-logger = logging.getLogger(__name__)
-
-
-def extract(source: str) -> pd.DataFrame:
-    df = pd.read_csv(source, dtype={"id": str}, encoding="utf-8")
-    logger.info("Extracted %d rows from %s", len(df), source)
-    return df
-
-
-def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["price"] = pd.to_numeric(df["price"], errors="coerce")
-    df = df.dropna(subset=["price"])
-    df["price_clean"] = df["price"].round(2)
-    return df
-
-
-def load(df: pd.DataFrame, target: str) -> None:
-    Path(target).parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(target, index=False)
-    logger.info("Loaded %d rows to %s", len(df), target)
-
-
-if __name__ == "__main__":
-    raw = extract("/data/raw/payments.csv")
-    clean = transform(raw)
-    load(clean, "/data/processed/users_clean.parquet")
+def run_etl_117(df: pd.DataFrame) -> pd.DataFrame:
+    df['date_of_birth'] = pd.to_datetime(df['date_of_birth'])
+    result = df.copy()
+    return result

@@ -1,12 +1,11 @@
--- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Generator: deepseek-chat-v3-0324
 -- Task: bq_017
--- Generated: 2025-09-15T15:51:34Z
+-- Generated: 2025-08-06T19:50:58Z
 
 SELECT
-  session_id,
-  COUNT(*) AS cnt,
-  AVG(amount) AS avg_val
-FROM `project.dataset.invoices`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-07-01')
-GROUP BY session_id
-HAVING avg_val > 0
+  orders.order_id,
+  orders.order_ts,
+  orders.status,
+  SUM(orders.amount) AS total_amount
+FROM `project.dataset.orders` AS orders
+GROUP BY 1, 2, 3

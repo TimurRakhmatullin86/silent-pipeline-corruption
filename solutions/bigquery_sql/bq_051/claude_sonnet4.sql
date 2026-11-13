@@ -1,20 +1,11 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_051
--- Generated: 2025-09-15T18:06:33Z
+-- Generated: 2025-10-29T12:01:53Z
 
-SELECT
-  customer_id,
-  created_at,
-  duration,
-  ROW_NUMBER() OVER (
-    PARTITION BY customer_id
-    ORDER BY duration DESC
-  ) AS rn,
-  SUM(duration) OVER (
-    PARTITION BY customer_id
-    ORDER BY created_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.clicks`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-05-01')
-  AND customer_id IS NOT NULL
+SELECT product_snapshots.snapshot_date, product_snapshots.product_id, product_snapshots.price, SUM(product_snapshots.price) AS total_price
+FROM `project.dataset.product_snapshots` AS product_snapshots
+JOIN `project.dataset.snapshot_runs` AS snapshot_runs
+  ON product_snapshots.snapshot_date = snapshot_runs.snapshot_date
+WHERE product_snapshots.snapshot_date >= '2025-01-01'
+  AND product_snapshots.snapshot_date < '2025-07-01'
+GROUP BY 1, 2, 3

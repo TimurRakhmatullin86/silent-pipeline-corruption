@@ -1,15 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_037
--- Generated: 2025-09-15T15:19:00Z
-
--- Task: bq_037
--- This query orders analysis
+-- Generated: 2025-10-27T14:19:29Z
 
 SELECT
-  order_id,
-  COUNT(*) AS cnt,
-  AVG(price) AS avg_val
-FROM `project.dataset.orders`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-07-01')
-GROUP BY order_id
-HAVING avg_val > 0
+  orders.order_id,
+  orders.customer_id,
+  orders.order_ts,
+  SUM(orders.amount) AS total_amount
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.customer_tier_history` AS customer_tier_history
+  ON orders.customer_id = customer_tier_history.customer_id
+GROUP BY 1, 2, 3
+ORDER BY 1

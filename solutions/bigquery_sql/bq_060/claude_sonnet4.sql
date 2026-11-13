@@ -1,21 +1,11 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_060
--- Generated: 2025-09-15T11:04:02Z
+-- Generated: 2025-10-19T08:43:05Z
 
-WITH base AS (
-  SELECT
-    customer_id,
-    ts,
-    conversions
-  FROM `project.dataset.users`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-05-01')
-    AND customer_id IS NOT NULL
-)
-SELECT
-  customer_id,
-  COUNT(DISTINCT ts) AS unique_tss,
-  SUM(conversions) AS total_conversions,
-  AVG(conversions) AS avg_conversions
-FROM base
-GROUP BY customer_id
-ORDER BY total_conversions DESC
+SELECT invoices.invoice_id, invoices.account_id, invoices.amount, SUM(invoices.amount) AS total_amount
+FROM `project.dataset.invoices` AS invoices
+JOIN `project.dataset.accounts` AS accounts
+  ON invoices.account_id = accounts.account_id
+JOIN `project.dataset.account_reps` AS account_reps
+  ON invoices.account_id = account_reps.account_id
+GROUP BY 1, 2, 3

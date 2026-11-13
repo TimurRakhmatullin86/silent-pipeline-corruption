@@ -1,23 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_005
--- Generated: 2025-09-15T18:22:00Z
-
--- Task: bq_005
--- This query orders analysis
+-- Generated: 2025-09-17T14:44:35Z
 
 SELECT
-  customer_id,
-  event_time,
-  clicks,
-  ROW_NUMBER() OVER (
-    PARTITION BY customer_id
-    ORDER BY clicks DESC
-  ) AS rn,
-  SUM(clicks) OVER (
-    PARTITION BY customer_id
-    ORDER BY event_time
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.orders`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-06-01')
-  AND customer_id IS NOT NULL
+  raw_events.event_id,
+  raw_events.user_id,
+  raw_events.session_id
+FROM `project.dataset.raw_events` AS raw_events
+WHERE raw_events.event_timestamp >= '2025-01-01'
+  AND raw_events.event_timestamp < '2025-07-01'
+ORDER BY 1

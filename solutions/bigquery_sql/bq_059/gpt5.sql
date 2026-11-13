@@ -1,15 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_059
--- Generated: 2025-09-15T19:23:00Z
-
--- Task: bq_059
--- This query subscriptions analysis
+-- Generated: 2025-10-18T19:37:15Z
 
 SELECT
-  merchant_id,
-  COUNT(*) AS cnt,
-  AVG(duration) AS avg_val
-FROM `project.dataset.subscriptions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-02-01')
-GROUP BY merchant_id
-HAVING avg_val > 0
+  daily_store_orders.store_id,
+  daily_store_orders.metric_date,
+  daily_store_orders.orders
+FROM `project.dataset.daily_store_orders` AS daily_store_orders
+JOIN `project.dataset.stores` AS stores
+  ON daily_store_orders.store_id = stores.store_id
+WHERE daily_store_orders.metric_date >= '2025-01-01'
+  AND daily_store_orders.metric_date < '2025-07-01'
+ORDER BY 1

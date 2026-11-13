@@ -1,20 +1,10 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_032
--- Generated: 2025-09-15T15:24:42Z
+-- Generated: 2025-08-13T11:56:34Z
 
-SELECT
-  order_id,
-  updated_at,
-  price,
-  ROW_NUMBER() OVER (
-    PARTITION BY order_id
-    ORDER BY price DESC
-  ) AS rn,
-  SUM(price) OVER (
-    PARTITION BY order_id
-    ORDER BY updated_at
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.users`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-02-01')
-  AND order_id IS NOT NULL
+SELECT campaigns.campaign_id, campaigns.campaign_name, campaigns.advertiser_id
+FROM `project.dataset.campaigns` AS campaigns
+JOIN `project.dataset.ad_spend` AS ad_spend
+  ON campaigns.campaign_id = ad_spend.campaign_id
+JOIN `project.dataset.conversions` AS conversions
+  ON campaigns.campaign_id = conversions.campaign_id

@@ -1,23 +1,14 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_006
--- Generated: 2025-09-15T11:39:00Z
-
--- Task: bq_006
--- This query subscriptions analysis
+-- Generated: 2025-10-21T14:52:27Z
 
 SELECT
-  device_id,
-  ts,
-  cost,
-  ROW_NUMBER() OVER (
-    PARTITION BY device_id
-    ORDER BY cost DESC
-  ) AS rn,
-  SUM(cost) OVER (
-    PARTITION BY device_id
-    ORDER BY ts
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS running_total
-FROM `project.dataset.subscriptions`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-09-01')
-  AND device_id IS NOT NULL
+  orders.order_id,
+  orders.customer_id,
+  orders.order_ts,
+  SUM(orders.total_amount) AS total_total_amount
+FROM `project.dataset.orders` AS orders
+JOIN `project.dataset.customers` AS customers
+  ON orders.customer_id = customers.customer_id
+GROUP BY 1, 2, 3
+ORDER BY 1

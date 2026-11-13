@@ -1,15 +1,13 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_026
--- Generated: 2025-09-15T12:28:00Z
-
--- Task: bq_026
--- This query campaigns analysis
+-- Generated: 2025-08-07T10:10:48Z
 
 SELECT
-  product_id,
-  COUNT(*) AS cnt,
-  AVG(clicks) AS avg_val
-FROM `project.dataset.campaigns`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-03-01')
-GROUP BY product_id
-HAVING avg_val > 0
+  api_requests.status,
+  api_requests.request_id,
+  api_requests.endpoint_id,
+  api_requests.request_ts
+FROM `project.dataset.api_requests` AS api_requests
+JOIN `project.dataset.endpoints` AS endpoints
+  ON api_requests.endpoint_id = endpoints.endpoint_id
+ORDER BY 1

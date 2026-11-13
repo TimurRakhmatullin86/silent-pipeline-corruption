@@ -1,20 +1,9 @@
--- Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+-- Generator: claude-sonnet-4-20250514
 -- Task: bq_022
--- Generated: 2025-09-15T18:30:45Z
+-- Generated: 2025-08-18T08:22:34Z
 
-WITH deduped AS (
-  SELECT *,
-    ROW_NUMBER() OVER (
-      PARTITION BY order_id ORDER BY updated_at DESC
-    ) AS _rn
-  FROM `project.dataset.clicks`
-  WHERE _PARTITIONTIME >= TIMESTAMP('2025-06-01')
-)
-SELECT
-  a.channel,
-  a.event_time,
-  b.clicks
-FROM deduped a
-INNER JOIN `project.dataset.inventory` b
-  ON a.order_id = b.order_id
-WHERE a._rn = 1
+SELECT sensor_readings.device_id, sensor_readings.reading_ts, sensor_readings.metric, SUM(sensor_readings.value) AS total_value
+FROM `project.dataset.sensor_readings` AS sensor_readings
+JOIN `project.dataset.devices` AS devices
+  ON sensor_readings.device_id = devices.device_id
+GROUP BY 1, 2, 3

@@ -1,19 +1,11 @@
-# Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+# Generator: claude-sonnet-4-20250514
 # Task: etl_084
-# Generated: 2025-09-15T13:20:40Z
+# Generated: 2025-10-09T12:41:19Z
 
-"""ETL: Process ops data for subscriptions"""
 import pandas as pd
+from google.cloud import bigquery
 
-
-def run(source: str, target: str) -> None:
-    df = pd.read_csv(source)
-    # inner merge silently drops rows where key is NaN
-    ref = pd.read_csv("/data/ref/events_ref.csv")
-    merged = df.merge(ref, on="session_id", how="inner")
-    merged["amount"] = merged["amount"].fillna(0)
-    merged.to_parquet(target, index=False)
-
-
-if __name__ == "__main__":
-    run("/data/raw/events.csv", "/data/processed/clicks_clean.parquet")
+def transform(df):
+    df['updated_at'] = pd.to_datetime(df['updated_at'])
+    result = df.copy()
+    return result

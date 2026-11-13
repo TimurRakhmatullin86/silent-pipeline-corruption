@@ -1,15 +1,12 @@
--- Generator: GPT-5 (gpt-5-2025-08-07)
+-- Generator: gpt-5-2025-08-07
 -- Task: bq_056
--- Generated: 2025-09-15T16:08:00Z
-
--- Task: bq_056
--- This query campaigns analysis
+-- Generated: 2025-09-19T13:11:31Z
 
 SELECT
-  user_id,
-  COUNT(*) AS cnt,
-  AVG(duration) AS avg_val
-FROM `project.dataset.campaigns`
-WHERE _PARTITIONTIME >= TIMESTAMP('2025-08-01')
-GROUP BY user_id
-HAVING avg_val > 0
+  user_activity.user_id,
+  user_activity.activity_date
+FROM `project.dataset.user_activity` AS user_activity
+CROSS JOIN `project.dataset.users` AS users
+WHERE user_activity.activity_date >= '2025-01-01'
+  AND user_activity.activity_date < '2025-07-01'
+ORDER BY 1

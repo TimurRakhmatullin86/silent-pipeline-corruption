@@ -1,44 +1,40 @@
-# Generator: Claude Sonnet 4 (claude-sonnet-4-20250514)
+# Generator: claude-sonnet-4-20250514
 # Task: af_043
-# Generated: 2025-09-15T17:52:56Z
+# Generated: 2025-10-23T16:46:55Z
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
-from datetime import timedelta
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
+from datetime import datetime, timedelta
 
 default_args = {
-    "owner": "data-eng",
-    "retries": 2,
-    "retry_delay": timedelta(minutes=5),
-    "on_failure_callback": lambda ctx: notify(ctx),
-    "email_on_failure": True,
+    'owner': 'data-engineering',
+    'depends_on_past': False,
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'catchup': False,
 }
 
-with DAG(
-    dag_id="pipeline_ml_af_043",
-    default_args=default_args,
-    schedule_interval="@hourly",
-    start_date=days_ago(1),
-    catchup=False,
-    tags=["ml"],
-) as dag:
+dag = DAG('af_043_pipeline', default_args=default_args, schedule_interval='@daily', start_date=datetime(2025, 1, 1))
 
-    def process_ml_data(**kwargs):
-        import pandas as pd
-        df = pd.read_csv("gs://data-lake/raw/ml/input.csv", dtype={"id": str})
-        df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
-        df = df.dropna(subset=["amount"])
-        df.to_parquet("gs://data-lake/processed/ml/output.parquet", index=False)
-
-    extract = PythonOperator(
-        task_id="extract_ml",
-        python_callable=process_ml_data,
+    process_dag_a_output = BigQueryInsertJobOperator(
+        task_id='process_dag_a_output',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.dag_a_output`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    validate = PythonOperator(
-        task_id="validate_ml",
-        python_callable=lambda **kw: True,
+    process_dag_b_output = BigQueryInsertJobOperator(
+        task_id='process_dag_b_output',
+        configuration={
+            "query": {
+                "query": "SELECT * FROM `project.dataset.dag_b_output`",
+                "useLegacySql": False,
+            }
+        }
     )
 
-    extract >> validate
+    process_dag_a_output >> process_dag_b_output
