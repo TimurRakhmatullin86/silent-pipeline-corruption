@@ -1,0 +1,128 @@
+{
+  "task_id": "etl_097",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for fintech_app that reconciles a source payments extract against the loaded warehouse table by business day. The script should: (1) aggregate both sides by payment_date to row count and total amount using exact decimal arithmetic, (2) combine the two aggregates with a full outer join, (3) classify each day as MATCH, MISMATCH, MISSING_IN_TARGET or EXTRA_IN_TARGET, (4) output count_diff and amount_diff (target minus source), (5) exit non-zero when any day is not MATCH. In the sample, rows are tagged with _dataset = source or target.",
+  "schema": {
+    "source_columns": {
+      "payment_id": "string",
+      "payment_date": "date",
+      "amount": "string (decimal, 2 places)"
+    },
+    "target_columns": {
+      "payment_date": "date",
+      "source_count": "int",
+      "target_count": "int",
+      "source_amount": "decimal(18,2)",
+      "target_amount": "decimal(18,2)",
+      "count_diff": "int",
+      "amount_diff": "decimal(18,2)",
+      "status": "string"
+    }
+  },
+  "test_data_sample": [
+    {
+      "_dataset": "source",
+      "payment_id": "p1",
+      "payment_date": "2025-05-01",
+      "amount": "100.10"
+    },
+    {
+      "_dataset": "source",
+      "payment_id": "p2",
+      "payment_date": "2025-05-01",
+      "amount": "100.10"
+    },
+    {
+      "_dataset": "source",
+      "payment_id": "p3",
+      "payment_date": "2025-05-01",
+      "amount": "100.10"
+    },
+    {
+      "_dataset": "source",
+      "payment_id": "p4",
+      "payment_date": "2025-05-02",
+      "amount": "25.00"
+    },
+    {
+      "_dataset": "source",
+      "payment_id": "p5",
+      "payment_date": "2025-05-02",
+      "amount": "25.00"
+    },
+    {
+      "_dataset": "target",
+      "payment_id": "p1",
+      "payment_date": "2025-05-01",
+      "amount": "100.10"
+    },
+    {
+      "_dataset": "target",
+      "payment_id": "p2",
+      "payment_date": "2025-05-01",
+      "amount": "100.10"
+    },
+    {
+      "_dataset": "target",
+      "payment_id": "p3",
+      "payment_date": "2025-05-01",
+      "amount": "100.10"
+    },
+    {
+      "_dataset": "target",
+      "payment_id": "p4",
+      "payment_date": "2025-05-02",
+      "amount": "25.00"
+    },
+    {
+      "_dataset": "target",
+      "payment_id": "p9",
+      "payment_date": "2025-05-03",
+      "amount": "10.00"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "payment_date": "2025-05-01",
+      "source_count": 3,
+      "target_count": 3,
+      "source_amount": "300.30",
+      "target_amount": "300.30",
+      "count_diff": 0,
+      "amount_diff": "0.00",
+      "status": "MATCH"
+    },
+    {
+      "payment_date": "2025-05-02",
+      "source_count": 2,
+      "target_count": 1,
+      "source_amount": "50.00",
+      "target_amount": "25.00",
+      "count_diff": -1,
+      "amount_diff": "-25.00",
+      "status": "MISMATCH"
+    },
+    {
+      "payment_date": "2025-05-03",
+      "source_count": 0,
+      "target_count": 1,
+      "source_amount": "0.00",
+      "target_amount": "10.00",
+      "count_diff": 1,
+      "amount_diff": "10.00",
+      "status": "EXTRA_IN_TARGET"
+    }
+  ],
+  "edge_cases": [
+    "2025-05-03 exists only in the target: an outer join is needed and missing-side counts must be 0, not NaN",
+    "Float summation of 100.10 three times gives 300.29999999999995; amounts must be Decimal or integer minor units",
+    "Aggregate each side before joining; joining row-level data on payment_date multiplies rows",
+    "A day absent from both sides produces no row",
+    "Exit code must be non-zero for the sample"
+  ],
+  "common_failure_modes": [
+    "FM1: Left join from source hides extra rows in the target",
+    "FM3: Row-level join on date before aggregating produces a cross product and inflated totals",
+    "FM7: Float tolerance comparisons flag false mismatches or mask one-cent differences"
+  ]
+}

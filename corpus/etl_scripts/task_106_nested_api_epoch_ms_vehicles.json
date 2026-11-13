@@ -1,0 +1,81 @@
+{
+  "task_id": "etl_106",
+  "category": "etl_script",
+  "description": "Write a Python ETL script (requests + pandas) for logistics_co that ingests vehicle position records from a telematics API that enforces a limit of 60 requests per minute. The script should: (1) respect HTTP 429 responses using the Retry-After header, with at most 5 retries per request, (2) flatten the nested location object, converting lat and lon from strings to floats, (3) convert ts_ms (epoch milliseconds) to a UTC timestamp preserving milliseconds, (4) convert speed_mph to speed_kph (x 1.609344, rounded to 2 decimals), (5) keep records with a missing location, with null coordinates.",
+  "schema": {
+    "source_columns": {
+      "vehicle_id": "string",
+      "ts_ms": "int (epoch milliseconds)",
+      "speed_mph": "float (nullable)",
+      "location": "object {lat: string, lon: string} (nullable)"
+    },
+    "target_columns": {
+      "vehicle_id": "string",
+      "position_ts": "datetime64[ns, UTC]",
+      "speed_kph": "float64 (nullable)",
+      "lat": "float64 (nullable)",
+      "lon": "float64 (nullable)"
+    }
+  },
+  "test_data_sample": [
+    {
+      "vehicle_id": "v1",
+      "ts_ms": 1717200000123,
+      "speed_mph": 60,
+      "location": {
+        "lat": "37.7749",
+        "lon": "-122.4194"
+      }
+    },
+    {
+      "vehicle_id": "v2",
+      "ts_ms": 1717200060000,
+      "speed_mph": 0,
+      "location": null
+    },
+    {
+      "vehicle_id": "v3",
+      "ts_ms": 1717200120000,
+      "speed_mph": null,
+      "location": {
+        "lat": "0.0",
+        "lon": "0.0"
+      }
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "vehicle_id": "v1",
+      "position_ts": "2024-06-01T00:00:00.123Z",
+      "speed_kph": 96.56,
+      "lat": 37.7749,
+      "lon": -122.4194
+    },
+    {
+      "vehicle_id": "v2",
+      "position_ts": "2024-06-01T00:01:00.000Z",
+      "speed_kph": 0.0,
+      "lat": null,
+      "lon": null
+    },
+    {
+      "vehicle_id": "v3",
+      "position_ts": "2024-06-01T00:02:00.000Z",
+      "speed_kph": null,
+      "lat": 0.0,
+      "lon": 0.0
+    }
+  ],
+  "edge_cases": [
+    "v2 has speed 0 (stationary), which is valid and different from v3's null speed; 'if speed' truthiness checks confuse the two",
+    "v2's location is null: json_normalize or dict access must not raise, and the row must be kept",
+    "ts_ms is milliseconds: unit='ms' is required and the .123 fraction must be preserved",
+    "v3's coordinates 0.0/0.0 are a likely GPS default; keep the row but flag it rather than silently dropping it",
+    "429 handling must sleep for Retry-After seconds and give up with an error after 5 attempts"
+  ],
+  "common_failure_modes": [
+    "FM4: Epoch milliseconds parsed as seconds (dates in year 56000+) or as nanoseconds (1970)",
+    "FM7: Falsy checks convert 0 speed to null or drop the row",
+    "FM5: Null nested object breaks flattening and drops or misaligns rows"
+  ]
+}

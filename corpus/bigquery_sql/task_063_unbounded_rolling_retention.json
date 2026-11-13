@@ -1,0 +1,52 @@
+{
+  "task_id": "bq_063",
+  "category": "bigquery_sql",
+  "description": "Compute unbounded (rolling) retention for daily signup cohorts of the gaming analytics platform at day N in (1, 7, 30). A player is retained at day N if they are active on signup_date + N days OR on any later date. To avoid right-censoring, a (cohort, N) pair is reported only if signup_date + N <= the latest activity_date in the whole dataset. Output columns: cohort_date (DATE), day_n (INT64), cohort_size (INT64), retained_players (INT64), retention_rate (FLOAT64, 4 decimals). Sort by cohort_date, day_n.",
+  "schema": {
+    "players": {
+      "columns": {
+        "player_id": {"type": "INT64", "description": "Primary key"},
+        "signup_date": {"type": "DATE", "description": "UTC signup date"},
+        "platform": {"type": "STRING", "description": "ios, android, pc"}
+      }
+    },
+    "player_activity": {
+      "columns": {
+        "player_id": {"type": "INT64", "description": "Foreign key to players"},
+        "activity_date": {"type": "DATE", "description": "UTC date with at least one session; duplicates possible"},
+        "sessions": {"type": "INT64", "description": "Sessions that day"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "players", "rows": [
+      {"player_id": 1, "signup_date": "2025-05-01", "platform": "ios"},
+      {"player_id": 2, "signup_date": "2025-05-01", "platform": "ios"},
+      {"player_id": 3, "signup_date": "2025-05-01", "platform": "pc"},
+      {"player_id": 4, "signup_date": "2025-05-01", "platform": "pc"}
+    ]},
+    {"table": "player_activity", "rows": [
+      {"player_id": 1, "activity_date": "2025-05-02", "sessions": 2},
+      {"player_id": 1, "activity_date": "2025-06-10", "sessions": 1},
+      {"player_id": 2, "activity_date": "2025-05-04", "sessions": 1},
+      {"player_id": 3, "activity_date": "2025-05-01", "sessions": 3},
+      {"player_id": 4, "activity_date": "2025-05-08", "sessions": 1}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"cohort_date": "2025-05-01", "day_n": 1, "cohort_size": 4, "retained_players": 3, "retention_rate": 0.75},
+    {"cohort_date": "2025-05-01", "day_n": 7, "cohort_size": 4, "retained_players": 2, "retention_rate": 0.5},
+    {"cohort_date": "2025-05-01", "day_n": 30, "cohort_size": 4, "retained_players": 1, "retention_rate": 0.25}
+  ],
+  "edge_cases": [
+    "Player 2 is active on day 3 only: retained at day 1 (unbounded) but not at day 7",
+    "Player 3 is active only on the signup day (day 0) and is never retained",
+    "Player 1's activity on day 40 makes them retained at day 30",
+    "Cohorts too young to observe day N are omitted for that N rather than reported as 0"
+  ],
+  "common_failure_modes": [
+    "FM2: Classic (bounded) retention with activity_date = signup_date + N reports day-1 retention of 1/4 instead of 3/4",
+    "FM7: Missing censoring guard reports artificially low day-30 retention for recent cohorts",
+    "FM1: Joining players to activity and counting rows inflates retained players with multiple qualifying days"
+  ]
+}

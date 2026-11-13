@@ -1,0 +1,53 @@
+{
+  "task_id": "bq_009",
+  "category": "bigquery_sql",
+  "description": "Find the top 3 products by units sold within each category for Q1 2025 (sale_date from 2025-01-01 to 2025-03-31 inclusive). Use RANK() semantics: products with equal units share a rank and the following rank is skipped; return every product whose rank is <= 3. Output columns: category (STRING), product_id (INT64), units_sold (INT64), sales_rank (INT64). Sort by category, sales_rank, product_id.",
+  "schema": {
+    "products": {
+      "columns": {
+        "product_id": {"type": "INT64", "description": "Primary key"},
+        "product_name": {"type": "STRING", "description": "Display name"},
+        "category": {"type": "STRING", "description": "Product category"}
+      }
+    },
+    "sales": {
+      "columns": {
+        "sale_id": {"type": "INT64", "description": "Primary key"},
+        "product_id": {"type": "INT64", "description": "Foreign key to products"},
+        "sale_date": {"type": "DATE", "description": "Date of sale"},
+        "units": {"type": "INT64", "description": "Units sold in this transaction"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "products", "rows": [
+      {"product_id": 1, "product_name": "Robot", "category": "Toys"},
+      {"product_id": 2, "product_name": "Puzzle", "category": "Toys"},
+      {"product_id": 3, "product_name": "Kite", "category": "Toys"},
+      {"product_id": 4, "product_name": "Blocks", "category": "Toys"}
+    ]},
+    {"table": "sales", "rows": [
+      {"sale_id": 1, "product_id": 1, "sale_date": "2025-01-10", "units": 6},
+      {"sale_id": 2, "product_id": 1, "sale_date": "2025-03-31", "units": 4},
+      {"sale_id": 3, "product_id": 2, "sale_date": "2025-02-14", "units": 10},
+      {"sale_id": 4, "product_id": 3, "sale_date": "2025-02-20", "units": 5},
+      {"sale_id": 5, "product_id": 4, "sale_date": "2025-03-01", "units": 3},
+      {"sale_id": 6, "product_id": 4, "sale_date": "2025-04-01", "units": 50}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"category": "Toys", "product_id": 1, "units_sold": 10, "sales_rank": 1},
+    {"category": "Toys", "product_id": 2, "units_sold": 10, "sales_rank": 1},
+    {"category": "Toys", "product_id": 3, "units_sold": 5, "sales_rank": 3}
+  ],
+  "edge_cases": [
+    "Ties at rank 1 mean the next product is rank 3, not rank 2",
+    "Sale on 2025-03-31 is in range; sale on 2025-04-01 is not",
+    "Products with no sales in the quarter must not appear",
+    "Category with fewer than 3 products returns all of them"
+  ],
+  "common_failure_modes": [
+    "FM3: Ranking individual sale rows instead of first aggregating units per product",
+    "FM4: Using ROW_NUMBER() or LIMIT 3 arbitrarily drops tied products; using DENSE_RANK() returns a 4th product"
+  ]
+}

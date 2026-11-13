@@ -1,0 +1,56 @@
+{
+  "task_id": "bq_027",
+  "category": "bigquery_sql",
+  "description": "Produce a referential integrity report for the logistics tracker's shipments table. Report three checks, each as one row: 'orphan_warehouse' = shipments whose warehouse_id is not NULL and has no match in warehouses; 'orphan_carrier' = shipments whose carrier_id is not NULL and has no match in carriers; 'null_carrier' = shipments whose carrier_id is NULL. Every check must appear even when its violation count is 0. Output columns: check_name (STRING), violation_count (INT64), min_shipment_id (INT64, smallest violating shipment_id or NULL). Sort by check_name.",
+  "schema": {
+    "shipments": {
+      "columns": {
+        "shipment_id": {"type": "INT64", "description": "Primary key"},
+        "order_id": {"type": "INT64", "description": "Order being shipped"},
+        "warehouse_id": {"type": "INT64", "description": "Foreign key to warehouses"},
+        "carrier_id": {"type": "INT64", "description": "Foreign key to carriers; NULL until a carrier is assigned"}
+      }
+    },
+    "warehouses": {
+      "columns": {
+        "warehouse_id": {"type": "INT64", "description": "Primary key"},
+        "city": {"type": "STRING", "description": "Warehouse city"}
+      }
+    },
+    "carriers": {
+      "columns": {
+        "carrier_id": {"type": "INT64", "description": "Primary key"},
+        "carrier_name": {"type": "STRING", "description": "Carrier name"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "shipments", "rows": [
+      {"shipment_id": 1, "order_id": 100, "warehouse_id": 1, "carrier_id": 1},
+      {"shipment_id": 2, "order_id": 101, "warehouse_id": 9, "carrier_id": 1},
+      {"shipment_id": 3, "order_id": 102, "warehouse_id": 1, "carrier_id": null},
+      {"shipment_id": 4, "order_id": 103, "warehouse_id": 9, "carrier_id": 7}
+    ]},
+    {"table": "warehouses", "rows": [
+      {"warehouse_id": 1, "city": "Rotterdam"}
+    ]},
+    {"table": "carriers", "rows": [
+      {"carrier_id": 1, "carrier_name": "FastFreight"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"check_name": "null_carrier", "violation_count": 1, "min_shipment_id": 3},
+    {"check_name": "orphan_carrier", "violation_count": 1, "min_shipment_id": 4},
+    {"check_name": "orphan_warehouse", "violation_count": 2, "min_shipment_id": 2}
+  ],
+  "edge_cases": [
+    "NULL carrier_id is a NULL violation, not an orphan",
+    "A shipment can violate several checks at once (shipment 4)",
+    "Checks with zero violations must still be returned with violation_count = 0",
+    "Duplicate keys in the parent tables must not inflate violation counts"
+  ],
+  "common_failure_modes": [
+    "FM5: NOT IN against a parent column containing NULL returns no orphans; LEFT JOIN ... IS NULL also counts NULL foreign keys as orphans unless filtered",
+    "FM7: Aggregating only violating rows returns no row for a passing check, making 'passed' indistinguishable from 'not run'"
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "task_id": "etl_101",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for retail_chain that merges an incoming batch of product price records into an existing Parquet target. The script should: (1) combine the existing target and the incoming batch, (2) for each product_key keep the record with the greatest updated_at, breaking ties by the greatest version, (3) never replace a newer target record with an older incoming one, (4) write the result atomically (write to a temporary path, then rename), (5) report counts of inserted, updated and unchanged keys. In the sample, rows are tagged with _dataset = target or incoming.",
+  "schema": {
+    "source_columns": {
+      "product_key": "string",
+      "price": "float",
+      "version": "int",
+      "updated_at": "string (ISO 8601)"
+    },
+    "target_columns": {
+      "product_key": "string",
+      "price": "float64",
+      "version": "int64",
+      "updated_at": "datetime64[ns, UTC]"
+    }
+  },
+  "test_data_sample": [
+    {
+      "_dataset": "target",
+      "product_key": "k1",
+      "price": 10.0,
+      "version": 1,
+      "updated_at": "2025-01-01T00:00:00Z"
+    },
+    {
+      "_dataset": "target",
+      "product_key": "k2",
+      "price": 20.0,
+      "version": 4,
+      "updated_at": "2025-01-05T00:00:00Z"
+    },
+    {
+      "_dataset": "incoming",
+      "product_key": "k1",
+      "price": 12.0,
+      "version": 2,
+      "updated_at": "2025-01-03T00:00:00Z"
+    },
+    {
+      "_dataset": "incoming",
+      "product_key": "k2",
+      "price": 18.0,
+      "version": 3,
+      "updated_at": "2025-01-02T00:00:00Z"
+    },
+    {
+      "_dataset": "incoming",
+      "product_key": "k3",
+      "price": 30.0,
+      "version": 1,
+      "updated_at": "2025-01-04T00:00:00Z"
+    },
+    {
+      "_dataset": "incoming",
+      "product_key": "k1",
+      "price": 13.0,
+      "version": 3,
+      "updated_at": "2025-01-03T00:00:00Z"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "product_key": "k1",
+      "price": 13.0,
+      "version": 3,
+      "updated_at": "2025-01-03T00:00:00Z"
+    },
+    {
+      "product_key": "k2",
+      "price": 20.0,
+      "version": 4,
+      "updated_at": "2025-01-05T00:00:00Z"
+    },
+    {
+      "product_key": "k3",
+      "price": 30.0,
+      "version": 1,
+      "updated_at": "2025-01-04T00:00:00Z"
+    }
+  ],
+  "edge_cases": [
+    "k2's incoming record is older than the target and must be ignored (incoming does not always win)",
+    "k1 has two incoming records with identical updated_at; the higher version (3, price 13.0) wins",
+    "drop_duplicates(keep='last') after concat depends on row order, not on updated_at",
+    "Expected counts for the sample: inserted 1 (k3), updated 1 (k1), unchanged 1 (k2)",
+    "A crash during the write must not leave a truncated target"
+  ],
+  "common_failure_modes": [
+    "FM1: Order-dependent dedup lets stale incoming rows overwrite newer target rows",
+    "FM2: Comparing updated_at as strings with mixed offsets picks the wrong latest record",
+    "FM7: Non-atomic overwrite corrupts the target on failure"
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "task_id": "bq_029",
+  "category": "bigquery_sql",
+  "description": "For each carrier in the logistics tracker, compute the total number of shipments, the number of delivered shipments, and the average delivery time in hours. Delivery time of a shipment is the time from its first 'shipped' event to its first 'delivered' event. Carriers with no delivered shipments must appear with delivered_shipments = 0 and avg_delivery_hours = NULL. Output columns: carrier_name (STRING), total_shipments (INT64), delivered_shipments (INT64), avg_delivery_hours (FLOAT64, 1 decimal). Sort by carrier_name.",
+  "schema": {
+    "carriers": {
+      "columns": {
+        "carrier_id": {"type": "INT64", "description": "Primary key"},
+        "carrier_name": {"type": "STRING", "description": "Carrier name"}
+      }
+    },
+    "shipments": {
+      "columns": {
+        "shipment_id": {"type": "INT64", "description": "Primary key"},
+        "order_id": {"type": "INT64", "description": "Order being shipped"},
+        "carrier_id": {"type": "INT64", "description": "Foreign key to carriers"}
+      }
+    },
+    "shipment_events": {
+      "columns": {
+        "event_id": {"type": "INT64", "description": "Primary key"},
+        "shipment_id": {"type": "INT64", "description": "Foreign key to shipments"},
+        "event_type": {"type": "STRING", "description": "shipped, in_transit, delivered, returned"},
+        "event_ts": {"type": "TIMESTAMP", "description": "UTC scan timestamp; scans can be repeated"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "carriers", "rows": [
+      {"carrier_id": 1, "carrier_name": "Alpha Freight"},
+      {"carrier_id": 2, "carrier_name": "Beta Parcel"}
+    ]},
+    {"table": "shipments", "rows": [
+      {"shipment_id": 1, "order_id": 100, "carrier_id": 1},
+      {"shipment_id": 2, "order_id": 101, "carrier_id": 1},
+      {"shipment_id": 3, "order_id": 102, "carrier_id": 2}
+    ]},
+    {"table": "shipment_events", "rows": [
+      {"event_id": 1, "shipment_id": 1, "event_type": "shipped", "event_ts": "2025-03-01T00:00:00Z"},
+      {"event_id": 2, "shipment_id": 1, "event_type": "delivered", "event_ts": "2025-03-02T00:00:00Z"},
+      {"event_id": 3, "shipment_id": 1, "event_type": "delivered", "event_ts": "2025-03-02T06:00:00Z"},
+      {"event_id": 4, "shipment_id": 2, "event_type": "shipped", "event_ts": "2025-03-01T00:00:00Z"},
+      {"event_id": 5, "shipment_id": 2, "event_type": "delivered", "event_ts": "2025-03-03T00:00:00Z"},
+      {"event_id": 6, "shipment_id": 3, "event_type": "shipped", "event_ts": "2025-03-01T00:00:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"carrier_name": "Alpha Freight", "total_shipments": 2, "delivered_shipments": 2, "avg_delivery_hours": 36.0},
+    {"carrier_name": "Beta Parcel", "total_shipments": 1, "delivered_shipments": 0, "avg_delivery_hours": null}
+  ],
+  "edge_cases": [
+    "Duplicate 'delivered' scan must not create a second delivery or change the delivery time",
+    "Shipment that was shipped but not delivered counts in total_shipments only",
+    "Carrier with no shipments at all must still be listed with zeros",
+    "Shipment with a delivered event but no shipped event has no measurable delivery time"
+  ],
+  "common_failure_modes": [
+    "FM1: Joining shipped events to delivered events row-by-row fans out on repeated scans, inflating counts and skewing the average",
+    "FM3: COUNT(*) after joining events counts events instead of shipments",
+    "FM1: INNER JOIN to delivered events drops carriers with no deliveries"
+  ]
+}

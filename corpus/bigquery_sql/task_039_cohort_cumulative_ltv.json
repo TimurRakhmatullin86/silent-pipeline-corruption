@@ -1,0 +1,52 @@
+{
+  "task_id": "bq_039",
+  "category": "bigquery_sql",
+  "description": "Compute cumulative lifetime value (LTV) per signup cohort for the subscription service. The cohort is the UTC month of signup. For each cohort and each month_offset from 0 up to the latest offset observable in the data (the month of the latest payment overall), output the cumulative successful-payment revenue of the cohort through that offset and ltv_per_user = cumulative_revenue / cohort_size, where cohort_size is ALL users who signed up in the cohort month (payers or not). Offsets with no payments must still appear, carrying the cumulative value forward. Output columns: cohort_month (DATE), month_offset (INT64), cohort_size (INT64), cumulative_revenue (FLOAT64), ltv_per_user (FLOAT64, 2 decimals).",
+  "schema": {
+    "users": {
+      "columns": {
+        "user_id": {"type": "INT64", "description": "Primary key"},
+        "signup_ts": {"type": "TIMESTAMP", "description": "UTC signup timestamp"}
+      }
+    },
+    "payments": {
+      "columns": {
+        "payment_id": {"type": "INT64", "description": "Primary key"},
+        "user_id": {"type": "INT64", "description": "Foreign key to users"},
+        "paid_ts": {"type": "TIMESTAMP", "description": "UTC payment timestamp"},
+        "amount": {"type": "FLOAT64", "description": "Payment amount"},
+        "status": {"type": "STRING", "description": "success, failed, refunded"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "users", "rows": [
+      {"user_id": 1, "signup_ts": "2025-01-05T10:00:00Z"},
+      {"user_id": 2, "signup_ts": "2025-01-20T10:00:00Z"},
+      {"user_id": 3, "signup_ts": "2025-01-25T10:00:00Z"},
+      {"user_id": 4, "signup_ts": "2025-01-28T10:00:00Z"}
+    ]},
+    {"table": "payments", "rows": [
+      {"payment_id": 1, "user_id": 1, "paid_ts": "2025-01-05T10:05:00Z", "amount": 20.0, "status": "success"},
+      {"payment_id": 2, "user_id": 1, "paid_ts": "2025-03-05T10:05:00Z", "amount": 20.0, "status": "success"},
+      {"payment_id": 3, "user_id": 2, "paid_ts": "2025-03-20T10:00:00Z", "amount": 40.0, "status": "success"},
+      {"payment_id": 4, "user_id": 2, "paid_ts": "2025-02-20T10:00:00Z", "amount": 40.0, "status": "failed"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"cohort_month": "2025-01-01", "month_offset": 0, "cohort_size": 4, "cumulative_revenue": 20.0, "ltv_per_user": 5.0},
+    {"cohort_month": "2025-01-01", "month_offset": 1, "cohort_size": 4, "cumulative_revenue": 20.0, "ltv_per_user": 5.0},
+    {"cohort_month": "2025-01-01", "month_offset": 2, "cohort_size": 4, "cumulative_revenue": 80.0, "ltv_per_user": 20.0}
+  ],
+  "edge_cases": [
+    "Offset 1 has no successful payments but must appear with the carried-forward cumulative value",
+    "Users who never paid (3 and 4) remain in the cohort_size denominator",
+    "Failed and refunded payments are excluded",
+    "Younger cohorts have fewer observable offsets; no rows beyond the latest data month"
+  ],
+  "common_failure_modes": [
+    "FM3: Dividing by the number of paying users instead of the full cohort overstates LTV (20/1 instead of 20/4)",
+    "FM2: Running sum over only the offsets that have payments skips offset 1, leaving a hole in the curve",
+    "FM1: INNER JOIN users to payments shrinks the cohort to payers"
+  ]
+}

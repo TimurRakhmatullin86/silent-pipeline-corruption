@@ -1,0 +1,105 @@
+{
+  "task_id": "etl_120",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for telecom_co that applies data-subject erasure requests to a support-ticket table and redacts contact details from free text for all remaining tickets. The script should: (1) match erasure requests to tickets on customer_id case-insensitively after trimming, (2) for erased customers set customer_id to null and replace body with '[ERASED]', keeping ticket_id and created_date for volume reporting, (3) for other tickets replace email addresses with '[EMAIL]' and phone numbers (10 digits with optional separators) with '[PHONE]', (4) leave order references written as '#' followed by digits untouched, (5) write an audit record with the number of tickets erased per request and flag requests that matched no ticket. In the sample, rows are tagged with _dataset = tickets or erasure_requests.",
+  "schema": {
+    "source_columns": {
+      "tickets": {
+        "ticket_id": "string",
+        "customer_id": "string",
+        "created_date": "date",
+        "body": "string"
+      },
+      "erasure_requests": {
+        "request_id": "string",
+        "customer_id": "string"
+      }
+    },
+    "target_columns": {
+      "ticket_id": "string",
+      "customer_id": "string (nullable)",
+      "created_date": "date",
+      "body": "string"
+    }
+  },
+  "test_data_sample": [
+    {
+      "_dataset": "tickets",
+      "ticket_id": "t1",
+      "customer_id": "c1",
+      "created_date": "2025-04-01",
+      "body": "Call me at 415-555-0199 or mail bob@example.com"
+    },
+    {
+      "_dataset": "tickets",
+      "ticket_id": "t2",
+      "customer_id": "c2",
+      "created_date": "2025-04-02",
+      "body": "My number is (415) 555 0123, please delete my data"
+    },
+    {
+      "_dataset": "tickets",
+      "ticket_id": "t3",
+      "customer_id": "c3",
+      "created_date": "2025-04-03",
+      "body": "Order #4155550199 delayed"
+    },
+    {
+      "_dataset": "erasure_requests",
+      "request_id": "r1",
+      "customer_id": " C2 "
+    },
+    {
+      "_dataset": "erasure_requests",
+      "request_id": "r2",
+      "customer_id": "c9"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "_dataset": "tickets",
+      "ticket_id": "t1",
+      "customer_id": "c1",
+      "created_date": "2025-04-01",
+      "body": "Call me at [PHONE] or mail [EMAIL]"
+    },
+    {
+      "_dataset": "tickets",
+      "ticket_id": "t2",
+      "customer_id": null,
+      "created_date": "2025-04-02",
+      "body": "[ERASED]"
+    },
+    {
+      "_dataset": "tickets",
+      "ticket_id": "t3",
+      "customer_id": "c3",
+      "created_date": "2025-04-03",
+      "body": "Order #4155550199 delayed"
+    },
+    {
+      "_dataset": "audit",
+      "request_id": "r1",
+      "tickets_erased": 1,
+      "matched": true
+    },
+    {
+      "_dataset": "audit",
+      "request_id": "r2",
+      "tickets_erased": 0,
+      "matched": false
+    }
+  ],
+  "edge_cases": [
+    "The request ' C2 ' must match customer 'c2' despite case and whitespace; an exact-match join erases nothing and reports no error",
+    "t3 contains a 10-digit order number after '#', which is not a phone number and must not be redacted",
+    "Request r2 matches no ticket and must be surfaced in the audit output instead of being ignored",
+    "Erasure must also be applied to any existing copies of the output (overwrite, not append), otherwise the old rows persist",
+    "Ticket counts per created_date must be identical before and after processing"
+  ],
+  "common_failure_modes": [
+    "FM1: Exact-match join on unnormalized ids leaves erasure requests unapplied",
+    "FM7: No audit of unmatched requests or of erased counts",
+    "FM7: Over-broad digit regex redacts order numbers, or an under-broad one misses phone formats"
+  ]
+}

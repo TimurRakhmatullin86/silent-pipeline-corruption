@@ -1,0 +1,39 @@
+{
+  "task_id": "af_047",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for retail_chain that builds the daily store sales mart from three independent upstream feeds: POS transactions (SFTP), inventory snapshot (S3), and promotions calendar (database table). The DAG should: (1) run three sensors in parallel (SFTPSensor, S3KeySensor, SqlSensor), (2) load each feed into its own staging table as soon as its sensor succeeds, (3) join the three staged feeds into the sales mart only when all three loads succeed, (4) if the promotions feed has not arrived by its timeout, continue with the previous day's promotions and flag the run as degraded, (5) write a run-status row. The DAG runs daily at 05:00 in the America/Chicago timezone.",
+  "schema": {
+    "source": "sftp://pos.retail-chain.example/outbound/pos_{{ ds_nodash }}.csv.gz, s3://retail-chain-inv/snapshots/{{ ds }}/inventory.parquet, promo_db.public.promotions_calendar",
+    "staging_tables": [
+      "staging.pos_txn",
+      "staging.inventory_snapshot",
+      "staging.promotions"
+    ],
+    "target": "mart.daily_store_sales",
+    "status_table": "ops.mart_run_status"
+  },
+  "expected_behavior": {
+    "schedule": "0 5 * * *",
+    "timezone": "America/Chicago",
+    "catchup": false,
+    "pos_sensor_timeout": 7200,
+    "inventory_sensor_timeout": 7200,
+    "promo_sensor_timeout": 3600,
+    "promo_sensor_soft_fail": true,
+    "build_mart_trigger_rule": "none_failed_min_one_success",
+    "degraded_flag_source": "promo sensor state == skipped",
+    "retries": 1
+  },
+  "edge_cases": [
+    "Promotions sensor uses soft_fail=True so timeout yields 'skipped'; the mart task must use a trigger rule that tolerates the skip",
+    "POS or inventory sensor timeout must still fail the whole DAG (they are mandatory feeds)",
+    "DAG start_date must be timezone-aware (pendulum) so the 05:00 schedule follows DST changes",
+    "Degraded flag must be derived from the actual task state, not assumed from elapsed time",
+    "Join to promotions must be a LEFT JOIN so stores without promotions keep their sales rows"
+  ],
+  "common_failure_modes": [
+    "FM6: Default all_success on the mart task causes it to be skipped whenever the optional promo feed is late",
+    "FM6: none_failed alone lets the mart run when mandatory sensors are skipped by an upstream short-circuit",
+    "FM1: INNER JOIN to promotions silently drops stores with no active promotion"
+  ]
+}

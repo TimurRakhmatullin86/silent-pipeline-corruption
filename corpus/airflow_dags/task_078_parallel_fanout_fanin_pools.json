@@ -1,0 +1,37 @@
+{
+  "task_id": "af_078",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for travel_booking that scrapes fare data from 25 supplier endpoints in parallel and then consolidates results. The DAG should: (1) fan out one extract task per supplier using dynamic task mapping, limited by a pool 'supplier_api' with 5 slots and by max_active_tis_per_dag, (2) give heavier suppliers priority_weight so they start first, (3) fan in to 'consolidate_fares', which must run when at least 20 suppliers succeeded, (4) deduplicate overlapping fares across suppliers keeping the lowest price per (route, travel_date, cabin), (5) publish and record the list of missing suppliers.",
+  "schema": {
+    "source": "supplier REST endpoints listed in config.suppliers",
+    "target": "pricing.consolidated_fares, ops.supplier_run_log"
+  },
+  "expected_behavior": {
+    "schedule": "0 */6 * * *",
+    "catchup": false,
+    "pool": "supplier_api",
+    "pool_slots_total": 5,
+    "min_success_suppliers": 20,
+    "consolidate_trigger_rule": "all_done",
+    "execution_timeout_extract": "0:20:00",
+    "retries": 2,
+    "dedup_key": [
+      "route",
+      "travel_date",
+      "cabin"
+    ],
+    "dedup_rule": "min(price_usd), tie -> supplier priority"
+  },
+  "edge_cases": [
+    "consolidate must count successful upstream map indexes itself; trigger rules cannot express 'at least 20 of 25'",
+    "Prices arrive in different currencies and must be converted to USD before picking the minimum",
+    "Ties on price must be broken deterministically",
+    "A supplier returning an empty list is a success with zero fares, different from a failed supplier",
+    "execution_timeout is needed so that one hanging supplier does not hold a pool slot indefinitely"
+  ],
+  "common_failure_modes": [
+    "FM3: Minimum price chosen across mixed currencies without conversion",
+    "FM6: all_done consolidate publishes when only a handful of suppliers succeeded",
+    "FM7: Missing suppliers not recorded, so coverage loss is invisible downstream"
+  ]
+}

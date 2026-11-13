@@ -1,0 +1,31 @@
+{
+  "task_id": "af_070",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for fintech_app that maintains a daily running account balance table, where each day's closing balance is the previous day's closing balance plus the day's net movements. The DAG must run strictly in date order: use catchup=True, max_active_runs=1 and depends_on_past=True on the compute task, plus wait_for_downstream where needed. The DAG should: (1) verify that the previous day's partition exists (except on the start date, which uses an opening-balance seed table), (2) compute today's balances, (3) write the day partition, (4) assert that the sum of balances equals the previous sum plus the sum of movements.",
+  "schema": {
+    "source": "ledger.account_movements, ledger.opening_balances_seed",
+    "target": "ledger.account_balances_daily (partitioned by balance_date)"
+  },
+  "expected_behavior": {
+    "schedule": "@daily",
+    "start_date": "2024-01-01",
+    "catchup": true,
+    "max_active_runs": 1,
+    "depends_on_past": true,
+    "first_run_source": "opening_balances_seed",
+    "continuity_check": "sum(today) == sum(yesterday) + sum(movements)",
+    "retries": 1
+  },
+  "edge_cases": [
+    "Accounts with no movements today must be carried forward (FULL OUTER JOIN of yesterday's balances with today's movements), not dropped",
+    "New accounts appearing today have no previous balance and start from 0",
+    "On the DAG's first logical date there is no previous partition; the seed table must be used",
+    "Re-running a past date makes all later dates stale; the DAG should document or automate downstream clearing",
+    "depends_on_past blocks the run after a failed day until the failure is cleared; alerts must make this visible"
+  ],
+  "common_failure_modes": [
+    "FM1: INNER JOIN between yesterday's balances and today's movements drops inactive accounts from the balance table",
+    "FM6: Without depends_on_past/max_active_runs=1, a backfill computes day N before day N-1 exists",
+    "FM7: No continuity assertion, so a dropped account goes unnoticed"
+  ]
+}

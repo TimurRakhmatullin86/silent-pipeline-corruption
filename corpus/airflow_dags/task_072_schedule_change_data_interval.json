@@ -1,0 +1,30 @@
+{
+  "task_id": "af_072",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for logistics_co that computes weekly carrier scorecards using a custom timetable or cron such that each run covers Monday 00:00 to the following Monday 00:00 UTC, and runs on Monday at 06:00 UTC after the week ends. The DAG must: (1) derive week_start and week_end explicitly from the data interval rather than assuming it, (2) aggregate on-time delivery rate per carrier for deliveries with delivered_at in [week_start, week_end), (3) write to a table keyed by (carrier_id, week_start), using delete-then-insert, (4) support backfill of the last 52 weeks.",
+  "schema": {
+    "source": "ops.deliveries (delivered_at UTC, promised_at UTC, carrier_id)",
+    "target": "analytics.carrier_scorecard_weekly"
+  },
+  "expected_behavior": {
+    "schedule": "0 6 * * 1",
+    "catchup": true,
+    "start_date": "first Monday of the backfill range",
+    "max_active_runs": 2,
+    "week_window": "[data_interval_end.start_of('week') - 7 days, data_interval_end.start_of('week'))",
+    "on_time_definition": "delivered_at <= promised_at",
+    "retries": 2
+  },
+  "edge_cases": [
+    "With cron '0 6 * * 1' the data interval is Monday 06:00 to Monday 06:00, not midnight to midnight; using it directly shifts the week by 6 hours",
+    "On-time rate denominator is delivered shipments in the week; undelivered shipments are excluded and must not be counted as late",
+    "Carriers with zero deliveries in a week should have no row rather than a 0% or NULL rate row",
+    "ISO week numbering at year boundaries: key on week_start date instead of (year, week_number)",
+    "Deliveries with NULL promised_at must be excluded from both numerator and denominator and counted separately"
+  ],
+  "common_failure_modes": [
+    "FM2: Using data_interval_start/end directly yields a Monday 06:00 based week",
+    "FM3: Averaging daily on-time rates instead of dividing weekly totals weights low-volume days equally",
+    "FM3: NULL promised_at rows fall into the denominator as not on time"
+  ]
+}

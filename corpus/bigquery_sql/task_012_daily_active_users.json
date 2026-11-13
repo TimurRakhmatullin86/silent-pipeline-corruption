@@ -1,0 +1,52 @@
+{
+  "task_id": "bq_012",
+  "category": "bigquery_sql",
+  "description": "Compute daily active users (DAU) for the gaming analytics platform. A player is active on a UTC calendar day if they have at least one event that day whose event_type is not 'heartbeat'. Exclude players flagged as test accounts. Output columns: activity_date (DATE), dau (INT64). Sort by activity_date.",
+  "schema": {
+    "game_events": {
+      "columns": {
+        "event_id": {"type": "INT64", "description": "Primary key"},
+        "player_id": {"type": "INT64", "description": "Foreign key to players"},
+        "event_ts": {"type": "TIMESTAMP", "description": "UTC event timestamp"},
+        "event_type": {"type": "STRING", "description": "login, match_start, match_end, purchase, heartbeat"}
+      }
+    },
+    "players": {
+      "columns": {
+        "player_id": {"type": "INT64", "description": "Primary key"},
+        "is_test_account": {"type": "BOOL", "description": "TRUE for internal QA accounts; may be NULL for legacy players (treat as FALSE)"},
+        "region": {"type": "STRING", "description": "Player region"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "game_events", "rows": [
+      {"event_id": 1, "player_id": 1, "event_ts": "2025-03-01T10:00:00Z", "event_type": "login"},
+      {"event_id": 2, "player_id": 1, "event_ts": "2025-03-01T12:00:00Z", "event_type": "match_start"},
+      {"event_id": 3, "player_id": 2, "event_ts": "2025-03-01T23:59:59Z", "event_type": "login"},
+      {"event_id": 4, "player_id": 2, "event_ts": "2025-03-02T00:00:01Z", "event_type": "match_start"},
+      {"event_id": 5, "player_id": 3, "event_ts": "2025-03-01T15:00:00Z", "event_type": "login"},
+      {"event_id": 6, "player_id": 4, "event_ts": "2025-03-02T08:00:00Z", "event_type": "heartbeat"}
+    ]},
+    {"table": "players", "rows": [
+      {"player_id": 1, "is_test_account": false, "region": "EU"},
+      {"player_id": 2, "is_test_account": null, "region": "NA"},
+      {"player_id": 3, "is_test_account": true, "region": "NA"},
+      {"player_id": 4, "is_test_account": false, "region": "APAC"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"activity_date": "2025-03-01", "dau": 2},
+    {"activity_date": "2025-03-02", "dau": 1}
+  ],
+  "edge_cases": [
+    "Player with several events in one day counts once",
+    "Session spanning midnight makes the player active on both days",
+    "Player with only heartbeat events is not active",
+    "is_test_account NULL must be treated as FALSE, not excluded"
+  ],
+  "common_failure_modes": [
+    "FM3: COUNT(player_id) instead of COUNT(DISTINCT player_id) counts events rather than players",
+    "FM5: WHERE is_test_account = FALSE silently drops players whose flag is NULL"
+  ]
+}

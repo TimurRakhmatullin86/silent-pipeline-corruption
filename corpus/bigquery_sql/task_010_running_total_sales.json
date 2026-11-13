@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_010",
+  "category": "bigquery_sql",
+  "description": "Compute the daily sales and running (cumulative) total of sales per store. A store may have several rows per day (one per register); first aggregate to one row per store per day, then compute the cumulative sum ordered by sale_date within each store. Only stores with is_active = TRUE are included. Output columns: store_id (INT64), sale_date (DATE), daily_amount (FLOAT64), running_total (FLOAT64). Sort by store_id, sale_date.",
+  "schema": {
+    "register_sales": {
+      "columns": {
+        "store_id": {"type": "INT64", "description": "Foreign key to stores"},
+        "register_id": {"type": "STRING", "description": "Register within the store"},
+        "sale_date": {"type": "DATE", "description": "Business date"},
+        "amount": {"type": "FLOAT64", "description": "Sales total for this register on this date"}
+      }
+    },
+    "stores": {
+      "columns": {
+        "store_id": {"type": "INT64", "description": "Primary key"},
+        "store_name": {"type": "STRING", "description": "Store name"},
+        "is_active": {"type": "BOOL", "description": "Whether the store is currently operating"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "register_sales", "rows": [
+      {"store_id": 1, "register_id": "A", "sale_date": "2025-03-01", "amount": 100.0},
+      {"store_id": 1, "register_id": "B", "sale_date": "2025-03-01", "amount": 50.0},
+      {"store_id": 1, "register_id": "A", "sale_date": "2025-03-02", "amount": 70.0},
+      {"store_id": 1, "register_id": "A", "sale_date": "2025-03-04", "amount": 30.0},
+      {"store_id": 2, "register_id": "A", "sale_date": "2025-03-01", "amount": 999.0}
+    ]},
+    {"table": "stores", "rows": [
+      {"store_id": 1, "store_name": "Downtown", "is_active": true},
+      {"store_id": 2, "store_name": "Closed Mall", "is_active": false}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"store_id": 1, "sale_date": "2025-03-01", "daily_amount": 150.0, "running_total": 150.0},
+    {"store_id": 1, "sale_date": "2025-03-02", "daily_amount": 70.0, "running_total": 220.0},
+    {"store_id": 1, "sale_date": "2025-03-04", "daily_amount": 30.0, "running_total": 250.0}
+  ],
+  "edge_cases": [
+    "Multiple register rows on the same day must collapse into one output row",
+    "Days with no sales are not emitted (no gap filling required)",
+    "Inactive stores are excluded entirely",
+    "Running total must reset for each store"
+  ],
+  "common_failure_modes": [
+    "FM3: Applying SUM() OVER directly on register rows yields one row per register and, with the default RANGE frame, identical running totals for same-day rows",
+    "FM3: Omitting PARTITION BY store_id accumulates across all stores"
+  ]
+}

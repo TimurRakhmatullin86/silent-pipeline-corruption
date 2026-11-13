@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_037",
+  "category": "bigquery_sql",
+  "description": "Enrich each order with the customer's loyalty tier that was valid at the moment the order was placed, using a Type-2 history table. A history row is valid for an order when valid_from <= order_ts and (valid_to IS NULL or order_ts < valid_to); valid_from is inclusive and valid_to is exclusive. Orders with no matching history row (placed before the first version) must be kept with tier_at_order = NULL. Each order must appear exactly once. Output columns: order_id (INT64), customer_id (INT64), order_ts (TIMESTAMP), amount (FLOAT64), tier_at_order (STRING). Sort by order_id.",
+  "schema": {
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "customer_id": {"type": "INT64", "description": "Customer business key"},
+        "order_ts": {"type": "TIMESTAMP", "description": "UTC order timestamp"},
+        "amount": {"type": "FLOAT64", "description": "Order amount"}
+      }
+    },
+    "customer_tier_history": {
+      "columns": {
+        "customer_id": {"type": "INT64", "description": "Customer business key"},
+        "tier": {"type": "STRING", "description": "Loyalty tier during the validity range"},
+        "valid_from": {"type": "TIMESTAMP", "description": "Start of validity (inclusive, UTC)"},
+        "valid_to": {"type": "TIMESTAMP", "description": "End of validity (exclusive, UTC); NULL for the current version"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "orders", "rows": [
+      {"order_id": 1, "customer_id": 1, "order_ts": "2025-01-31T23:59:59Z", "amount": 40.0},
+      {"order_id": 2, "customer_id": 1, "order_ts": "2025-02-01T00:00:00Z", "amount": 60.0},
+      {"order_id": 3, "customer_id": 1, "order_ts": "2023-12-15T10:00:00Z", "amount": 25.0}
+    ]},
+    {"table": "customer_tier_history", "rows": [
+      {"customer_id": 1, "tier": "basic", "valid_from": "2024-01-01T00:00:00Z", "valid_to": "2025-02-01T00:00:00Z"},
+      {"customer_id": 1, "tier": "gold", "valid_from": "2025-02-01T00:00:00Z", "valid_to": null}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"order_id": 1, "customer_id": 1, "order_ts": "2025-01-31T23:59:59Z", "amount": 40.0, "tier_at_order": "basic"},
+    {"order_id": 2, "customer_id": 1, "order_ts": "2025-02-01T00:00:00Z", "amount": 60.0, "tier_at_order": "gold"},
+    {"order_id": 3, "customer_id": 1, "order_ts": "2023-12-15T10:00:00Z", "amount": 25.0, "tier_at_order": null}
+  ],
+  "edge_cases": [
+    "Order placed exactly at a version boundary belongs to the NEW version",
+    "Order older than the first history version keeps a NULL tier",
+    "Open-ended current version has valid_to NULL",
+    "Row count of the output equals row count of orders"
+  ],
+  "common_failure_modes": [
+    "FM2: BETWEEN valid_from AND valid_to is inclusive on both ends, so the boundary order matches both versions and is duplicated",
+    "FM1: Joining on customer_id only (or to the current version) assigns today's tier to historical orders or fans out per version",
+    "FM5: order_ts < valid_to is NULL for the open-ended row, dropping all recent orders when COALESCE/IS NULL handling is missing"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "task_id": "bq_017",
+  "category": "bigquery_sql",
+  "description": "Compute year-over-year (YoY) monthly revenue growth for 2025. For every month listed in calendar_months with month_start in 2025, output the revenue of that month (0 if there were no completed orders), the revenue of the same month in 2024 (0 if none), and yoy_pct = 100 * (revenue - prev_year_revenue) / prev_year_revenue, which must be NULL when prev_year_revenue is 0. Only orders with status = 'completed' count. Output columns: month (DATE), revenue (FLOAT64), prev_year_revenue (FLOAT64), yoy_pct (FLOAT64, 1 decimal).",
+  "schema": {
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "order_ts": {"type": "TIMESTAMP", "description": "UTC order timestamp"},
+        "status": {"type": "STRING", "description": "completed, cancelled"},
+        "amount": {"type": "FLOAT64", "description": "Order amount"}
+      }
+    },
+    "calendar_months": {
+      "columns": {
+        "month_start": {"type": "DATE", "description": "First day of the month; one row per month, no gaps"},
+        "fiscal_quarter": {"type": "STRING", "description": "Fiscal quarter label"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "orders", "rows": [
+      {"order_id": 1, "order_ts": "2024-01-10T10:00:00Z", "status": "completed", "amount": 600.0},
+      {"order_id": 2, "order_ts": "2024-01-25T10:00:00Z", "status": "completed", "amount": 400.0},
+      {"order_id": 3, "order_ts": "2024-02-11T10:00:00Z", "status": "completed", "amount": 500.0},
+      {"order_id": 4, "order_ts": "2025-01-09T10:00:00Z", "status": "completed", "amount": 1200.0},
+      {"order_id": 5, "order_ts": "2025-03-15T10:00:00Z", "status": "completed", "amount": 300.0},
+      {"order_id": 6, "order_ts": "2025-02-15T10:00:00Z", "status": "cancelled", "amount": 900.0}
+    ]},
+    {"table": "calendar_months", "rows": [
+      {"month_start": "2025-01-01", "fiscal_quarter": "FY25-Q1"},
+      {"month_start": "2025-02-01", "fiscal_quarter": "FY25-Q1"},
+      {"month_start": "2025-03-01", "fiscal_quarter": "FY25-Q1"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"month": "2025-01-01", "revenue": 1200.0, "prev_year_revenue": 1000.0, "yoy_pct": 20.0},
+    {"month": "2025-02-01", "revenue": 0.0, "prev_year_revenue": 500.0, "yoy_pct": -100.0},
+    {"month": "2025-03-01", "revenue": 300.0, "prev_year_revenue": 0.0, "yoy_pct": null}
+  ],
+  "edge_cases": [
+    "Month with no revenue in the current year must still appear with revenue 0",
+    "Month with no revenue in the prior year yields yoy_pct NULL (no division by zero)",
+    "Cancelled orders are excluded in both years"
+  ],
+  "common_failure_modes": [
+    "FM2: LAG(revenue, 12) over months present in the data compares against the wrong month when months are missing",
+    "FM1: INNER JOIN between current-year and prior-year aggregates drops months missing from either side",
+    "FM7: Missing SAFE_DIVIDE / NULLIF causes a division-by-zero error"
+  ]
+}

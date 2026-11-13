@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_041",
+  "category": "bigquery_sql",
+  "description": "Compute monthly revenue and fiscal-year-to-date (FYTD) cumulative revenue per business unit. The fiscal year starts on February 1 and is labeled by the calendar year in which it starts (FY2025 = 2025-02-01 through 2026-01-31; January 2025 belongs to FY2024). Output one row per business unit per calendar month between the unit's first and last revenue month, including months with no revenue (monthly_revenue = 0, FYTD carried forward). FYTD resets at the start of each fiscal year. Output columns: business_unit (STRING), month (DATE), fiscal_year (INT64), monthly_revenue (FLOAT64), fytd_revenue (FLOAT64). Sort by business_unit, month.",
+  "schema": {
+    "daily_revenue": {
+      "columns": {
+        "rev_date": {"type": "DATE", "description": "Revenue date"},
+        "business_unit_id": {"type": "INT64", "description": "Foreign key to business_units"},
+        "amount": {"type": "FLOAT64", "description": "Revenue booked that day; days without revenue have no row"}
+      }
+    },
+    "business_units": {
+      "columns": {
+        "business_unit_id": {"type": "INT64", "description": "Primary key"},
+        "business_unit": {"type": "STRING", "description": "Unit name"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "daily_revenue", "rows": [
+      {"rev_date": "2024-12-15", "business_unit_id": 1, "amount": 300.0},
+      {"rev_date": "2025-01-10", "business_unit_id": 1, "amount": 60.0},
+      {"rev_date": "2025-01-31", "business_unit_id": 1, "amount": 40.0},
+      {"rev_date": "2025-02-01", "business_unit_id": 1, "amount": 200.0},
+      {"rev_date": "2025-03-03", "business_unit_id": 1, "amount": 50.0},
+      {"rev_date": "2025-05-20", "business_unit_id": 1, "amount": 10.0}
+    ]},
+    {"table": "business_units", "rows": [
+      {"business_unit_id": 1, "business_unit": "Hardware"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"business_unit": "Hardware", "month": "2025-01-01", "fiscal_year": 2024, "monthly_revenue": 100.0, "fytd_revenue": 400.0},
+    {"business_unit": "Hardware", "month": "2025-02-01", "fiscal_year": 2025, "monthly_revenue": 200.0, "fytd_revenue": 200.0},
+    {"business_unit": "Hardware", "month": "2025-03-01", "fiscal_year": 2025, "monthly_revenue": 50.0, "fytd_revenue": 250.0},
+    {"business_unit": "Hardware", "month": "2025-04-01", "fiscal_year": 2025, "monthly_revenue": 0.0, "fytd_revenue": 250.0}
+  ],
+  "edge_cases": [
+    "January belongs to the previous fiscal year; the cumulative sum resets in February, not January",
+    "Revenue on 2025-01-31 vs 2025-02-01 falls into different fiscal years",
+    "April has no revenue rows but must appear with 0 and the carried FYTD",
+    "Each business unit accumulates independently"
+  ],
+  "common_failure_modes": [
+    "FM2: Partitioning the running sum by EXTRACT(YEAR) resets in January instead of February",
+    "FM2: Off-by-one fiscal-year formula (e.g. year + 1 for months >= 2) mislabels every row",
+    "FM3: Running sum over daily rows without first aggregating to months yields multiple rows per month"
+  ]
+}

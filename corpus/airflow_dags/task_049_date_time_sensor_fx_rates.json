@@ -1,0 +1,34 @@
+{
+  "task_id": "af_049",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for fintech_app that loads end-of-day FX rates and revalues open positions. The DAG should: (1) use DateTimeSensorAsync to wait until 17:15 America/New_York on the logical date (rates are published at 17:00 NY time), (2) call the rates provider and store rates for the logical date, (3) wait with an ExternalTaskSensor for the positions_snapshot DAG's 'publish' task of the same logical date, (4) compute revaluation P&L by joining positions to rates, (5) write results partitioned by valuation_date. The DAG is scheduled daily at 00:00 UTC, Monday through Friday only.",
+  "schema": {
+    "source": "rates provider REST endpoint /eod?date={{ ds }}, risk.positions_snapshot",
+    "rates_table": "market.fx_rates_eod",
+    "target": "risk.fx_revaluation (partitioned by valuation_date)"
+  },
+  "expected_behavior": {
+    "schedule": "0 0 * * 1-5",
+    "catchup": false,
+    "datetime_sensor_target": "{{ data_interval_start.in_timezone('America/New_York').replace(hour=17, minute=15) }}",
+    "external_task_sensor": {
+      "external_dag_id": "positions_snapshot",
+      "external_task_id": "publish",
+      "mode": "reschedule",
+      "timeout": 7200
+    },
+    "retries": 3,
+    "retry_exponential_backoff": true
+  },
+  "edge_cases": [
+    "With cron '0 0 * * 1-5' the Friday data interval is processed by the run that starts Monday; valuation_date must be data_interval_start's date, not the run's start date",
+    "17:15 New York is 21:15 or 22:15 UTC depending on DST; the target time must be computed in the NY timezone",
+    "Positions with a currency missing from the rates table must be reported, not silently dropped",
+    "ExternalTaskSensor must match the same logical date; the upstream DAG has an identical schedule so no execution_delta is needed"
+  ],
+  "common_failure_modes": [
+    "FM2: Hard-coding 22:15 UTC makes the DAG fetch rates an hour early during daylight saving time",
+    "FM1: INNER JOIN between positions and rates drops positions in currencies with no published rate",
+    "FM6: ExternalTaskSensor with a wrong execution_delta waits forever for a run that does not exist"
+  ]
+}

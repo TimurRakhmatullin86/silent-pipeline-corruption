@@ -1,0 +1,94 @@
+{
+  "task_id": "etl_114",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for media_stream that groups page-view events into sessions and aggregates them. A new session starts for a user when the gap from that user's previous event is strictly greater than 30 minutes. The script should: (1) parse event_ts to UTC and sort by user_id and event_ts, (2) assign a per-user session number, (3) aggregate per session: session_start, session_end, event_count and duration_seconds, (4) assign session_date from session_start so that sessions crossing midnight are not split, (5) build session_id as '<user_id>-<n>'.",
+  "schema": {
+    "source_columns": {
+      "user_id": "string",
+      "event_ts": "string (ISO 8601)",
+      "page": "string"
+    },
+    "target_columns": {
+      "session_id": "string",
+      "user_id": "string",
+      "session_date": "date",
+      "session_start": "datetime64[ns, UTC]",
+      "session_end": "datetime64[ns, UTC]",
+      "event_count": "int64",
+      "duration_seconds": "int64"
+    }
+  },
+  "test_data_sample": [
+    {
+      "user_id": "u1",
+      "event_ts": "2025-10-01T10:10:00Z",
+      "page": "/b"
+    },
+    {
+      "user_id": "u1",
+      "event_ts": "2025-10-01T10:00:00Z",
+      "page": "/a"
+    },
+    {
+      "user_id": "u1",
+      "event_ts": "2025-10-01T10:40:00Z",
+      "page": "/c"
+    },
+    {
+      "user_id": "u1",
+      "event_ts": "2025-10-01T11:11:00Z",
+      "page": "/d"
+    },
+    {
+      "user_id": "u2",
+      "event_ts": "2025-10-01T23:50:00Z",
+      "page": "/a"
+    },
+    {
+      "user_id": "u2",
+      "event_ts": "2025-10-02T00:05:00Z",
+      "page": "/b"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "session_id": "u1-1",
+      "user_id": "u1",
+      "session_date": "2025-10-01",
+      "session_start": "2025-10-01T10:00:00Z",
+      "session_end": "2025-10-01T10:40:00Z",
+      "event_count": 3,
+      "duration_seconds": 2400
+    },
+    {
+      "session_id": "u1-2",
+      "user_id": "u1",
+      "session_date": "2025-10-01",
+      "session_start": "2025-10-01T11:11:00Z",
+      "session_end": "2025-10-01T11:11:00Z",
+      "event_count": 1,
+      "duration_seconds": 0
+    },
+    {
+      "session_id": "u2-1",
+      "user_id": "u2",
+      "session_date": "2025-10-01",
+      "session_start": "2025-10-01T23:50:00Z",
+      "session_end": "2025-10-02T00:05:00Z",
+      "event_count": 2,
+      "duration_seconds": 900
+    }
+  ],
+  "edge_cases": [
+    "A gap of exactly 30 minutes (10:10 to 10:40) stays in the same session; 31 minutes (10:40 to 11:11) starts a new one",
+    "The gap must be computed within each user: diff() over the whole sorted frame compares u2's first event with u1's last event",
+    "u2's session crosses midnight and must remain one session dated 2025-10-01",
+    "Input is not sorted",
+    "A single-event session has a duration of 0 seconds"
+  ],
+  "common_failure_modes": [
+    "FM3: Gap computed across user boundaries merges or splits sessions incorrectly",
+    "FM2: Grouping by calendar date before sessionizing splits sessions at midnight",
+    "FM2: Off-by-one on the 30-minute threshold (>= instead of >)"
+  ]
+}

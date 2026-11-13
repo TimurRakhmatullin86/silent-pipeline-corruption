@@ -1,0 +1,47 @@
+{
+  "task_id": "bq_011",
+  "category": "bigquery_sql",
+  "description": "List all registered customers who have never had a completed order (anti-join). A customer with only cancelled or pending orders still qualifies. Guest orders have customer_id = NULL in the orders table and must not affect the result. Output columns: customer_id (INT64), email (STRING), signup_date (DATE). Sort by customer_id.",
+  "schema": {
+    "customers": {
+      "columns": {
+        "customer_id": {"type": "INT64", "description": "Primary key"},
+        "email": {"type": "STRING", "description": "Customer email"},
+        "signup_date": {"type": "DATE", "description": "Registration date"}
+      }
+    },
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "customer_id": {"type": "INT64", "description": "Foreign key to customers; NULL for guest checkout"},
+        "status": {"type": "STRING", "description": "pending, completed, cancelled"},
+        "order_ts": {"type": "TIMESTAMP", "description": "UTC order timestamp"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "customers", "rows": [
+      {"customer_id": 1, "email": "a@example.com", "signup_date": "2025-01-02"},
+      {"customer_id": 2, "email": "b@example.com", "signup_date": "2025-01-03"},
+      {"customer_id": 3, "email": "c@example.com", "signup_date": "2025-01-04"}
+    ]},
+    {"table": "orders", "rows": [
+      {"order_id": 100, "customer_id": 1, "status": "completed", "order_ts": "2025-01-05T10:00:00Z"},
+      {"order_id": 101, "customer_id": 2, "status": "cancelled", "order_ts": "2025-01-06T10:00:00Z"},
+      {"order_id": 102, "customer_id": null, "status": "completed", "order_ts": "2025-01-07T10:00:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"customer_id": 2, "email": "b@example.com", "signup_date": "2025-01-03"},
+    {"customer_id": 3, "email": "c@example.com", "signup_date": "2025-01-04"}
+  ],
+  "edge_cases": [
+    "Guest orders with NULL customer_id exist in the orders table",
+    "Customer with only cancelled orders must be returned",
+    "Customer with both a cancelled and a completed order must not be returned"
+  ],
+  "common_failure_modes": [
+    "FM5: customer_id NOT IN (SELECT customer_id FROM orders ...) returns zero rows when the subquery contains a NULL",
+    "FM1: LEFT JOIN with the status filter in WHERE instead of ON turns the anti-join into an inner join and drops customers with only cancelled orders"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "task_id": "bq_018",
+  "category": "bigquery_sql",
+  "description": "Compute a trailing 7-calendar-day moving average of daily signups per platform. The window for date D covers D-6 through D inclusive. Days with no row in daily_signups count as 0 signups (they are not skipped). ma_7d must be NULL until 7 calendar days of history exist for the platform (i.e. for the first 6 days after the platform's first date). Output one row per platform per calendar date from the platform's first date to its last date. Output columns: platform (STRING), signup_date (DATE), signups (INT64), ma_7d (FLOAT64, 2 decimals).",
+  "schema": {
+    "daily_signups": {
+      "columns": {
+        "signup_date": {"type": "DATE", "description": "Calendar date"},
+        "platform": {"type": "STRING", "description": "ios, android, web"},
+        "signups": {"type": "INT64", "description": "Number of signups; rows are absent for days with zero signups"}
+      }
+    },
+    "calendar": {
+      "columns": {
+        "calendar_date": {"type": "DATE", "description": "One row per calendar date, no gaps"},
+        "is_weekend": {"type": "BOOL", "description": "Weekend flag"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "daily_signups", "rows": [
+      {"signup_date": "2025-06-01", "platform": "ios", "signups": 7},
+      {"signup_date": "2025-06-02", "platform": "ios", "signups": 7},
+      {"signup_date": "2025-06-04", "platform": "ios", "signups": 7},
+      {"signup_date": "2025-06-05", "platform": "ios", "signups": 7},
+      {"signup_date": "2025-06-06", "platform": "ios", "signups": 7},
+      {"signup_date": "2025-06-07", "platform": "ios", "signups": 7},
+      {"signup_date": "2025-06-08", "platform": "ios", "signups": 14}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"platform": "ios", "signup_date": "2025-06-03", "signups": 0, "ma_7d": null},
+    {"platform": "ios", "signup_date": "2025-06-07", "signups": 7, "ma_7d": 6.0},
+    {"platform": "ios", "signup_date": "2025-06-08", "signups": 14, "ma_7d": 7.0}
+  ],
+  "edge_cases": [
+    "Missing day 2025-06-03 must be emitted with signups = 0 and counted in the average",
+    "First 6 days of each platform have ma_7d NULL",
+    "Each platform has its own date range and window",
+    "Divisor is always 7, never the number of rows present"
+  ],
+  "common_failure_modes": [
+    "FM2: ROWS BETWEEN 6 PRECEDING AND CURRENT ROW over sparse data spans more than 7 calendar days",
+    "FM3: AVG() over existing rows divides by the number of non-missing days instead of 7",
+    "FM4: RANGE BETWEEN with a DATE ORDER BY is not supported in BigQuery without converting to a numeric key (UNIX_DATE)"
+  ]
+}

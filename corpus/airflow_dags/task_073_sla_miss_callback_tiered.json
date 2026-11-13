@@ -1,0 +1,35 @@
+{
+  "task_id": "af_073",
+  "category": "airflow_dag",
+  "description": "Create an Airflow 2.x DAG for fintech_app's regulatory reporting pipeline with task-level SLAs and a DAG-level sla_miss_callback. Tasks: extract_trades (SLA 30 min), enrich_counterparties (SLA 1 h), build_report (SLA 1 h 30 min), submit_report (SLA 2 h); SLAs are measured from the scheduled run time. The sla_miss_callback must post to Slack with the list of missed tasks and blocking tasks, and page on-call only if 'submit_report' is among the misses. The DAG runs on weekdays at 18:00 Europe/London, and the regulatory deadline is 21:00 local time.",
+  "schema": {
+    "source": "trading.executed_trades, ref.counterparties",
+    "target": "regulatory.daily_transaction_report, sftp submission"
+  },
+  "expected_behavior": {
+    "schedule": "0 18 * * 1-5",
+    "timezone": "Europe/London",
+    "catchup": false,
+    "slas": {
+      "extract_trades": "0:30:00",
+      "enrich_counterparties": "1:00:00",
+      "build_report": "1:30:00",
+      "submit_report": "2:00:00"
+    },
+    "sla_miss_callback_signature": "(dag, task_list, blocking_task_list, slas, blocking_tis)",
+    "retries": 2,
+    "execution_timeout_submit": "0:45:00"
+  },
+  "edge_cases": [
+    "Airflow SLAs are measured relative to the end of the data interval (the scheduled run time), not the task start time; they are cumulative deadlines, not durations",
+    "SLA misses are not evaluated for manually triggered runs; a separate deadline check task is needed for those",
+    "sla_miss_callback has a different signature from on_failure_callback and receives no context dict",
+    "An SLA miss does not stop or fail the task; execution_timeout is needed to bound runtime",
+    "Trades enriched via LEFT JOIN: missing counterparty must block submission rather than send blank LEI fields"
+  ],
+  "common_failure_modes": [
+    "FM6: Reusing an on_failure_callback function as sla_miss_callback raises a TypeError inside the scheduler and no alert is sent",
+    "FM6: Treating sla as per-task duration, so cumulative delay goes undetected",
+    "FM7: Report submitted with NULL counterparty identifiers"
+  ]
+}

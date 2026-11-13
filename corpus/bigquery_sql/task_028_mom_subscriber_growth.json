@@ -1,0 +1,45 @@
+{
+  "task_id": "bq_028",
+  "category": "bigquery_sql",
+  "description": "Compute month-over-month (MoM) growth of active subscribers per plan from monthly snapshots. For each snapshot row, prev_month_subscribers is the value for the same plan in the immediately preceding CALENDAR month; if there is no snapshot for that calendar month, prev_month_subscribers and mom_pct are NULL. mom_pct = 100 * (current - previous) / previous. Output columns: plan_name (STRING), snapshot_month (DATE), active_subscribers (INT64), prev_month_subscribers (INT64), mom_pct (FLOAT64, 1 decimal). Sort by plan_name, snapshot_month.",
+  "schema": {
+    "subscriber_snapshots": {
+      "columns": {
+        "snapshot_month": {"type": "DATE", "description": "First day of the month; months can be missing when the snapshot job failed"},
+        "plan_id": {"type": "INT64", "description": "Foreign key to plans"},
+        "active_subscribers": {"type": "INT64", "description": "Active subscribers at month end"}
+      }
+    },
+    "plans": {
+      "columns": {
+        "plan_id": {"type": "INT64", "description": "Primary key"},
+        "plan_name": {"type": "STRING", "description": "Plan name"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "subscriber_snapshots", "rows": [
+      {"snapshot_month": "2025-01-01", "plan_id": 1, "active_subscribers": 100},
+      {"snapshot_month": "2025-02-01", "plan_id": 1, "active_subscribers": 110},
+      {"snapshot_month": "2025-04-01", "plan_id": 1, "active_subscribers": 121}
+    ]},
+    {"table": "plans", "rows": [
+      {"plan_id": 1, "plan_name": "Basic"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"plan_name": "Basic", "snapshot_month": "2025-01-01", "active_subscribers": 100, "prev_month_subscribers": null, "mom_pct": null},
+    {"plan_name": "Basic", "snapshot_month": "2025-02-01", "active_subscribers": 110, "prev_month_subscribers": 100, "mom_pct": 10.0},
+    {"plan_name": "Basic", "snapshot_month": "2025-04-01", "active_subscribers": 121, "prev_month_subscribers": null, "mom_pct": null}
+  ],
+  "edge_cases": [
+    "March snapshot is missing, so April must not be compared with February",
+    "First month of each plan has NULL growth",
+    "Previous value of 0 must yield NULL mom_pct, not an error",
+    "Each plan is compared only with its own history"
+  ],
+  "common_failure_modes": [
+    "FM2: LAG() ordered by snapshot_month compares April with February (previous row), reporting 10% growth across a two-month gap",
+    "FM3: Missing PARTITION BY plan_id compares one plan against another"
+  ]
+}

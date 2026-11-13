@@ -1,0 +1,48 @@
+{
+  "task_id": "bq_016",
+  "category": "bigquery_sql",
+  "description": "Compute the daily session-level conversion rate from product view to purchase. A session is a 'viewer' if it has at least one 'product_view' event. A session is a 'purchaser' if it has a 'purchase' event that occurs strictly after its first 'product_view' event. The day is the UTC date of the session's first product_view. Output columns: event_date (DATE), viewers (INT64), purchasers (INT64), conversion_rate (FLOAT64, purchasers / viewers, 4 decimals).",
+  "schema": {
+    "web_events": {
+      "columns": {
+        "event_id": {"type": "INT64", "description": "Primary key"},
+        "session_id": {"type": "STRING", "description": "Foreign key to sessions"},
+        "event_name": {"type": "STRING", "description": "product_view, add_to_cart, purchase, ..."},
+        "event_ts": {"type": "TIMESTAMP", "description": "UTC event timestamp"}
+      }
+    },
+    "sessions": {
+      "columns": {
+        "session_id": {"type": "STRING", "description": "Primary key"},
+        "user_id": {"type": "INT64", "description": "User identifier; NULL for anonymous"},
+        "device": {"type": "STRING", "description": "mobile, desktop, tablet"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "web_events", "rows": [
+      {"event_id": 1, "session_id": "s1", "event_name": "product_view", "event_ts": "2025-05-01T10:00:00Z"},
+      {"event_id": 2, "session_id": "s1", "event_name": "purchase", "event_ts": "2025-05-01T10:05:00Z"},
+      {"event_id": 3, "session_id": "s2", "event_name": "product_view", "event_ts": "2025-05-01T11:00:00Z"},
+      {"event_id": 4, "session_id": "s3", "event_name": "purchase", "event_ts": "2025-05-01T09:00:00Z"},
+      {"event_id": 5, "session_id": "s3", "event_name": "product_view", "event_ts": "2025-05-01T09:10:00Z"},
+      {"event_id": 6, "session_id": "s4", "event_name": "product_view", "event_ts": "2025-05-01T12:00:00Z"},
+      {"event_id": 7, "session_id": "s4", "event_name": "product_view", "event_ts": "2025-05-01T12:02:00Z"},
+      {"event_id": 8, "session_id": "s4", "event_name": "purchase", "event_ts": "2025-05-01T12:10:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"event_date": "2025-05-01", "viewers": 4, "purchasers": 2, "conversion_rate": 0.5}
+  ],
+  "edge_cases": [
+    "Purchase that happens before the first product view does not count as a conversion",
+    "Session with several product views counts as one viewer",
+    "Session with a purchase but no product view is neither a viewer nor a purchaser",
+    "Days with zero viewers must not cause a division-by-zero error"
+  ],
+  "common_failure_modes": [
+    "FM1: Self-joining view rows to purchase rows multiplies sessions with several views",
+    "FM3: COUNT(*) instead of COUNT(DISTINCT session_id) counts events rather than sessions",
+    "FM7: Ignoring event order counts purchases that preceded the view"
+  ]
+}

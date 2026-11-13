@@ -1,0 +1,53 @@
+{
+  "task_id": "bq_043",
+  "category": "bigquery_sql",
+  "description": "Write a BigQuery MERGE statement that applies a staging batch of product changes to the target dimension table. Rules: (1) the staging batch may contain several rows per product_id; only the row with the latest updated_at (ties: highest staging_seq) is applied; (2) if the winning staging row has is_deleted = TRUE, delete the product from the target (do nothing if absent); (3) if the product exists in the target, update it only when staging updated_at is strictly newer than the target's updated_at; (4) if the product does not exist and is not deleted, insert it. The expected output is the full content of products_target after the MERGE. Output columns: product_id (INT64), price (FLOAT64), updated_at (TIMESTAMP).",
+  "schema": {
+    "products_target": {
+      "columns": {
+        "product_id": {"type": "INT64", "description": "Primary key (unique in target)"},
+        "price": {"type": "FLOAT64", "description": "Current price"},
+        "updated_at": {"type": "TIMESTAMP", "description": "Timestamp of the last applied change"}
+      }
+    },
+    "products_staging": {
+      "columns": {
+        "staging_seq": {"type": "INT64", "description": "Arrival order within the batch"},
+        "product_id": {"type": "INT64", "description": "Business key; not unique in staging"},
+        "price": {"type": "FLOAT64", "description": "New price; NULL on delete rows"},
+        "is_deleted": {"type": "BOOL", "description": "TRUE when the product was removed at source"},
+        "updated_at": {"type": "TIMESTAMP", "description": "Source change timestamp"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "products_target", "rows": [
+      {"product_id": 1, "price": 10.0, "updated_at": "2025-01-01T00:00:00Z"},
+      {"product_id": 2, "price": 20.0, "updated_at": "2025-01-01T00:00:00Z"},
+      {"product_id": 3, "price": 30.0, "updated_at": "2025-01-05T00:00:00Z"}
+    ]},
+    {"table": "products_staging", "rows": [
+      {"staging_seq": 1, "product_id": 1, "price": 12.0, "is_deleted": false, "updated_at": "2025-01-02T00:00:00Z"},
+      {"staging_seq": 2, "product_id": 1, "price": 13.0, "is_deleted": false, "updated_at": "2025-01-03T00:00:00Z"},
+      {"staging_seq": 3, "product_id": 2, "price": null, "is_deleted": true, "updated_at": "2025-01-04T00:00:00Z"},
+      {"staging_seq": 4, "product_id": 3, "price": 25.0, "is_deleted": false, "updated_at": "2025-01-03T00:00:00Z"},
+      {"staging_seq": 5, "product_id": 4, "price": 40.0, "is_deleted": false, "updated_at": "2025-01-02T00:00:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"product_id": 1, "price": 13.0, "updated_at": "2025-01-03T00:00:00Z"},
+    {"product_id": 3, "price": 30.0, "updated_at": "2025-01-05T00:00:00Z"},
+    {"product_id": 4, "price": 40.0, "updated_at": "2025-01-02T00:00:00Z"}
+  ],
+  "edge_cases": [
+    "Two staging rows for product 1: only the newest is applied",
+    "Stale staging row for product 3 (older than target) must not overwrite the target",
+    "Delete for product 2 removes the row; a delete for a product absent from the target must not insert anything",
+    "Re-running the same MERGE must leave the target unchanged (idempotent)"
+  ],
+  "common_failure_modes": [
+    "FM4: MERGE with a non-deduplicated source fails in BigQuery with 'UPDATE/MERGE must match at most one source row for each target row'",
+    "FM3: WHEN NOT MATCHED THEN INSERT without excluding is_deleted rows inserts tombstones as products with NULL price",
+    "FM7: No updated_at guard in WHEN MATCHED lets late-arriving stale data overwrite newer values"
+  ]
+}

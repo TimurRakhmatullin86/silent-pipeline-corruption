@@ -1,0 +1,43 @@
+{
+  "task_id": "af_055",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG 'customer_360_build' for telecom_co that depends on two upstream DAGs with different schedules: 'billing_export' (daily at 01:00 UTC) and 'usage_rollup' (hourly). The DAG runs daily at 04:00 UTC and must: (1) wait with ExternalTaskSensor for billing_export's final task for the same data date, (2) wait for the usage_rollup run covering the last hour (23:00-24:00) of the data date, (3) build the customer_360 table, (4) run validation. Both sensors use reschedule mode, time out after 3 hours, and must fail fast if the upstream task is in a failed state.",
+  "schema": {
+    "source": "billing.invoices_daily, usage.hourly_rollup",
+    "target": "analytics.customer_360"
+  },
+  "expected_behavior": {
+    "schedule": "0 4 * * *",
+    "catchup": false,
+    "billing_sensor": {
+      "external_dag_id": "billing_export",
+      "external_task_id": "publish",
+      "execution_delta": "3:00:00"
+    },
+    "usage_sensor": {
+      "external_dag_id": "usage_rollup",
+      "external_task_id": "finalize",
+      "execution_date_fn": "logical_date at 04:00 -> same day 23:00"
+    },
+    "allowed_states": [
+      "success"
+    ],
+    "failed_states": [
+      "failed",
+      "upstream_failed"
+    ],
+    "sensor_mode": "reschedule",
+    "sensor_timeout": 10800
+  },
+  "edge_cases": [
+    "execution_delta is subtracted from this DAG's logical date: 04:00 minus 3h equals the 01:00 logical date of billing_export for the same day",
+    "The usage_rollup run that covers 23:00-24:00 has logical date 23:00 of the data date, which is 19 hours after this DAG's 04:00 logical date (negative delta)",
+    "failed_states must be set, otherwise the sensor polls until timeout when the upstream has already failed",
+    "upstream skipped state must not be treated as success"
+  ],
+  "common_failure_modes": [
+    "FM6: Omitting execution_delta makes the sensor look for an upstream run at 04:00 that never exists",
+    "FM2: Waiting for the 00:00 usage_rollup run of the data date builds customer_360 with one hour of usage instead of 24",
+    "FM6: No failed_states means a failed upstream burns the full 3-hour timeout before alerting"
+  ]
+}

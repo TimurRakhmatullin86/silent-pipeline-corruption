@@ -1,0 +1,83 @@
+{
+  "task_id": "etl_104",
+  "category": "etl_script",
+  "description": "Write a PySpark ETL script for ecom_market that deduplicates order status events so that the target holds the latest state of each order. The script should: (1) route events with a null order_id to a quarantine output, keeping every such row, (2) for the remaining events, use a window partitioned by order_id ordered by event_ts descending then ingest_seq descending and keep row_number = 1, (3) write the latest state per order, (4) log input, output and quarantine counts.",
+  "schema": {
+    "source_columns": {
+      "order_id": "string (nullable)",
+      "status": "string",
+      "event_ts": "timestamp",
+      "ingest_seq": "long"
+    },
+    "target_columns": {
+      "order_id": "string",
+      "status": "string",
+      "event_ts": "timestamp",
+      "ingest_seq": "long"
+    }
+  },
+  "test_data_sample": [
+    {
+      "order_id": "o1",
+      "status": "created",
+      "event_ts": "2025-05-05T10:00:00Z",
+      "ingest_seq": 1
+    },
+    {
+      "order_id": "o1",
+      "status": "shipped",
+      "event_ts": "2025-05-05T10:05:00Z",
+      "ingest_seq": 3
+    },
+    {
+      "order_id": "o1",
+      "status": "paid",
+      "event_ts": "2025-05-05T10:05:00Z",
+      "ingest_seq": 2
+    },
+    {
+      "order_id": null,
+      "status": "created",
+      "event_ts": "2025-05-05T10:06:00Z",
+      "ingest_seq": 4
+    },
+    {
+      "order_id": null,
+      "status": "paid",
+      "event_ts": "2025-05-05T10:07:00Z",
+      "ingest_seq": 5
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "_dataset": "latest",
+      "order_id": "o1",
+      "status": "shipped",
+      "event_ts": "2025-05-05T10:05:00Z",
+      "ingest_seq": 3
+    },
+    {
+      "_dataset": "quarantine",
+      "order_id": null,
+      "status": "created",
+      "ingest_seq": 4
+    },
+    {
+      "_dataset": "quarantine",
+      "order_id": null,
+      "status": "paid",
+      "ingest_seq": 5
+    }
+  ],
+  "edge_cases": [
+    "'paid' and 'shipped' share the same event_ts; without the ingest_seq tie-breaker the winner is non-deterministic",
+    "Null order_ids form a single window partition: without the quarantine step, two unrelated events collapse into one row",
+    "dropDuplicates(['order_id']) keeps an arbitrary row rather than the latest",
+    "Counts must reconcile: 5 input = 1 latest + 2 superseded + 2 quarantined"
+  ],
+  "common_failure_modes": [
+    "FM1: Null keys grouped into one partition, merging unrelated records",
+    "FM3: Missing tie-breaker in the window ordering yields different results between runs",
+    "FM7: Rows with null keys dropped by a filter without being quarantined or counted"
+  ]
+}

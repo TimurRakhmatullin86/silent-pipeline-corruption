@@ -1,0 +1,32 @@
+{
+  "task_id": "af_064",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for iot_fleet that parses raw device messages and routes unparseable records to a dead-letter table rather than failing the batch, with failure thresholds. The DAG should: (1) parse the hourly batch, writing good rows to staging and bad rows with an error reason to a dead-letter table, (2) compute bad_ratio = bad / (good + bad), (3) if bad_ratio > 5% fail the run before loading; if between 1% and 5% load but send a warning; below 1% load silently, (4) load staging to the warehouse, (5) use different callbacks by severity: PagerDuty for run failure, Slack for warnings.",
+  "schema": {
+    "source": "s3://iot-fleet-ingest/raw/dt={{ ds }}/hr={{ logical_date.strftime('%H') }}/",
+    "staging_table": "staging.device_messages",
+    "dead_letter_table": "ops.device_messages_dlq",
+    "target": "warehouse.fct_device_messages"
+  },
+  "expected_behavior": {
+    "schedule": "@hourly",
+    "catchup": false,
+    "fail_threshold": 0.05,
+    "warn_threshold": 0.01,
+    "retries": 1,
+    "on_failure_callback": "pagerduty",
+    "warning_channel": "slack",
+    "threshold_failure_exception": "AirflowFailException (no retry)"
+  },
+  "edge_cases": [
+    "An empty batch (good + bad = 0) must not raise ZeroDivisionError; treat it as a warning for missing data",
+    "A threshold breach must raise AirflowFailException so that the parse is not retried pointlessly",
+    "Dead-letter rows must carry batch hour and run_id so that a re-run can delete its previous DLQ rows first",
+    "Thresholds are strict: exactly 5% loads with a warning, exactly 1% loads silently"
+  ],
+  "common_failure_modes": [
+    "FM7: Parser drops malformed rows with errors='coerce' and no count, so bad_ratio is always 0",
+    "FM3: bad_ratio computed as bad / good understates the threshold check and breaks on good = 0",
+    "FM6: Threshold failure raised as a generic exception triggers retries that re-insert DLQ rows"
+  ]
+}

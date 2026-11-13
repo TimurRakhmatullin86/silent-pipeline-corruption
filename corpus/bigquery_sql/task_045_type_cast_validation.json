@@ -1,0 +1,53 @@
+{
+  "task_id": "bq_045",
+  "category": "bigquery_sql",
+  "description": "Validate an all-STRING staging table of lab results before loading it into a typed table. After trimming whitespace: patient_id must cast to INT64; result_value must cast to FLOAT64 (period as decimal separator; values like '<0.5' or '6,2' are invalid); result_date must be a valid ISO date (YYYY-MM-DD) that actually exists in the calendar; unit must exist in lab_units. Produce a summary with one row per outcome: 'valid' (rows passing all checks) and one row per reject reason ('invalid_patient_id', 'invalid_result_value', 'invalid_result_date', 'unknown_unit'). A row failing several checks is counted under each reason it fails. All five outcomes must be listed, with 0 when none. Output columns: outcome (STRING), row_count (INT64). Sort by outcome.",
+  "schema": {
+    "raw_lab_results": {
+      "columns": {
+        "row_id": {"type": "INT64", "description": "Line number in the source file"},
+        "patient_id": {"type": "STRING", "description": "Should be an integer"},
+        "result_value": {"type": "STRING", "description": "Should be a decimal number"},
+        "result_date": {"type": "STRING", "description": "Should be YYYY-MM-DD"},
+        "unit": {"type": "STRING", "description": "Measurement unit code"}
+      }
+    },
+    "lab_units": {
+      "columns": {
+        "unit": {"type": "STRING", "description": "Primary key; allowed unit code"},
+        "description": {"type": "STRING", "description": "Human-readable unit name"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "raw_lab_results", "rows": [
+      {"row_id": 1, "patient_id": "123", "result_value": "5.4", "result_date": "2025-03-01", "unit": "mmol/L"},
+      {"row_id": 2, "patient_id": "124", "result_value": "<0.5", "result_date": "2025-03-02", "unit": "mmol/L"},
+      {"row_id": 3, "patient_id": "abc", "result_value": "7.1", "result_date": "2025-03-03", "unit": "mmol/L"},
+      {"row_id": 4, "patient_id": "125", "result_value": "6,2", "result_date": "03/04/2025", "unit": "mmol/L"},
+      {"row_id": 5, "patient_id": "126", "result_value": " 4.0 ", "result_date": "2025-02-30", "unit": "mmol/L"}
+    ]},
+    {"table": "lab_units", "rows": [
+      {"unit": "mmol/L", "description": "millimoles per litre"},
+      {"unit": "mg/dL", "description": "milligrams per decilitre"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"outcome": "invalid_patient_id", "row_count": 1},
+    {"outcome": "invalid_result_date", "row_count": 2},
+    {"outcome": "invalid_result_value", "row_count": 2},
+    {"outcome": "unknown_unit", "row_count": 0},
+    {"outcome": "valid", "row_count": 1}
+  ],
+  "edge_cases": [
+    "Row 4 fails two checks and is counted under both reasons but is one rejected row",
+    "'2025-02-30' matches the YYYY-MM-DD pattern but is not a real date",
+    "Padded value ' 4.0 ' is valid after trimming",
+    "NULL or empty source strings count as invalid for the respective check"
+  ],
+  "common_failure_modes": [
+    "FM4: CAST raises an error on the first bad value and aborts the job; SAFE_CAST / SAFE.PARSE_DATE is required",
+    "FM7: Validating dates with a regex only accepts impossible dates such as 2025-02-30",
+    "FM5: SAFE_CAST returning NULL is indistinguishable from a NULL source value unless both are treated explicitly"
+  ]
+}

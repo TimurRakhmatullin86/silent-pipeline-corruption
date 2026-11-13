@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_023",
+  "category": "bigquery_sql",
+  "description": "Compute week-1 retention by weekly signup cohort for the content platform. The cohort is the ISO week (Monday start) of the user's signup_date. A user is retained in week 1 if they have at least one activity whose UTC date falls between signup_date + 7 days and signup_date + 13 days inclusive (measured per user, relative to the user's own signup date). Output columns: cohort_week (DATE, the Monday), cohort_size (INT64), retained_users (INT64), retention_rate (FLOAT64, 4 decimals).",
+  "schema": {
+    "users": {
+      "columns": {
+        "user_id": {"type": "INT64", "description": "Primary key"},
+        "signup_date": {"type": "DATE", "description": "UTC signup date"},
+        "country": {"type": "STRING", "description": "Country code"}
+      }
+    },
+    "activity_log": {
+      "columns": {
+        "activity_id": {"type": "INT64", "description": "Primary key"},
+        "user_id": {"type": "INT64", "description": "Foreign key to users"},
+        "activity_ts": {"type": "TIMESTAMP", "description": "UTC timestamp of the activity"},
+        "activity_type": {"type": "STRING", "description": "read, comment, share"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "users", "rows": [
+      {"user_id": 1, "signup_date": "2025-06-02", "country": "US"},
+      {"user_id": 2, "signup_date": "2025-06-03", "country": "US"},
+      {"user_id": 3, "signup_date": "2025-06-08", "country": "FR"},
+      {"user_id": 4, "signup_date": "2025-06-04", "country": "FR"}
+    ]},
+    {"table": "activity_log", "rows": [
+      {"activity_id": 1, "user_id": 1, "activity_ts": "2025-06-09T08:00:00Z", "activity_type": "read"},
+      {"activity_id": 2, "user_id": 2, "activity_ts": "2025-06-09T08:00:00Z", "activity_type": "read"},
+      {"activity_id": 3, "user_id": 2, "activity_ts": "2025-06-17T08:00:00Z", "activity_type": "comment"},
+      {"activity_id": 4, "user_id": 3, "activity_ts": "2025-06-15T23:00:00Z", "activity_type": "read"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"cohort_week": "2025-06-02", "cohort_size": 4, "retained_users": 2, "retention_rate": 0.5}
+  ],
+  "edge_cases": [
+    "User 2 is active on day 6 and day 14 only, so is not retained in week 1",
+    "Sunday 2025-06-08 belongs to the ISO week starting Monday 2025-06-02",
+    "Users with no activity at all remain in the cohort denominator",
+    "Multiple activities in the window count the user once"
+  ],
+  "common_failure_modes": [
+    "FM4: DATE_TRUNC(signup_date, WEEK) starts weeks on Sunday in BigQuery; WEEK(MONDAY) or ISOWEEK is required",
+    "FM2: Off-by-one window (days 6-12 or 8-14) misclassifies users on the boundary days",
+    "FM1: INNER JOIN to activity_log removes inactive users from cohort_size"
+  ]
+}

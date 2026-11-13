@@ -1,0 +1,52 @@
+{
+  "task_id": "bq_042",
+  "category": "bigquery_sql",
+  "description": "Price each shipment in the logistics tracker using weight brackets per delivery zone (a range / inequality join). A bracket applies when shipment.zone = bracket.zone and min_kg <= weight_kg and (max_kg IS NULL or weight_kg < max_kg); min_kg is inclusive, max_kg is exclusive, NULL max_kg means unbounded. Shipments with no matching bracket must be kept with shipping_cost = NULL and is_unpriced = TRUE. Each shipment appears exactly once. Output columns: shipment_id (INT64), zone (STRING), weight_kg (FLOAT64), shipping_cost (FLOAT64), is_unpriced (BOOL). Sort by shipment_id.",
+  "schema": {
+    "shipments": {
+      "columns": {
+        "shipment_id": {"type": "INT64", "description": "Primary key"},
+        "zone": {"type": "STRING", "description": "Delivery zone code"},
+        "weight_kg": {"type": "FLOAT64", "description": "Billable weight; NULL when not yet weighed"}
+      }
+    },
+    "rate_brackets": {
+      "columns": {
+        "zone": {"type": "STRING", "description": "Delivery zone code"},
+        "min_kg": {"type": "FLOAT64", "description": "Lower bound, inclusive"},
+        "max_kg": {"type": "FLOAT64", "description": "Upper bound, exclusive; NULL = no upper bound"},
+        "flat_rate": {"type": "FLOAT64", "description": "Shipping cost for the bracket"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "shipments", "rows": [
+      {"shipment_id": 1, "zone": "A", "weight_kg": 4.999},
+      {"shipment_id": 2, "zone": "A", "weight_kg": 5.0},
+      {"shipment_id": 3, "zone": "A", "weight_kg": 20.0},
+      {"shipment_id": 4, "zone": "Z", "weight_kg": 3.0}
+    ]},
+    {"table": "rate_brackets", "rows": [
+      {"zone": "A", "min_kg": 0.0, "max_kg": 5.0, "flat_rate": 10.0},
+      {"zone": "A", "min_kg": 5.0, "max_kg": 20.0, "flat_rate": 25.0},
+      {"zone": "A", "min_kg": 20.0, "max_kg": null, "flat_rate": 60.0}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"shipment_id": 1, "zone": "A", "weight_kg": 4.999, "shipping_cost": 10.0, "is_unpriced": false},
+    {"shipment_id": 2, "zone": "A", "weight_kg": 5.0, "shipping_cost": 25.0, "is_unpriced": false},
+    {"shipment_id": 3, "zone": "A", "weight_kg": 20.0, "shipping_cost": 60.0, "is_unpriced": false},
+    {"shipment_id": 4, "zone": "Z", "weight_kg": 3.0, "shipping_cost": null, "is_unpriced": true}
+  ],
+  "edge_cases": [
+    "Weight exactly on a bracket boundary (5.0, 20.0) belongs to the upper bracket only",
+    "Unbounded top bracket has max_kg NULL",
+    "Zone with no brackets yields an unpriced shipment, not a dropped row",
+    "Shipment with NULL weight is unpriced"
+  ],
+  "common_failure_modes": [
+    "FM1: BETWEEN min_kg AND max_kg matches two brackets on boundary weights, duplicating shipments",
+    "FM5: weight_kg < max_kg is NULL for the unbounded bracket, so heavy shipments lose their price",
+    "FM1: INNER JOIN silently drops shipments in zones without brackets"
+  ]
+}

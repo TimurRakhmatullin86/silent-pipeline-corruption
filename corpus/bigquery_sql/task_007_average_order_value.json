@@ -1,0 +1,52 @@
+{
+  "task_id": "bq_007",
+  "category": "bigquery_sql",
+  "description": "Compute the monthly average order value (AOV) and average items per order by sales channel for paid orders (status = 'paid'). AOV = SUM(total_amount) / COUNT(DISTINCT order_id). Average items per order = SUM(quantity) / COUNT(DISTINCT order_id). Zero-value orders (total_amount = 0, e.g. fully discounted) are included in the denominator. Output columns: month (DATE), channel (STRING), order_count (INT64), aov (FLOAT64, rounded to 2 decimals), avg_items_per_order (FLOAT64, rounded to 2 decimals).",
+  "schema": {
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "channel": {"type": "STRING", "description": "Sales channel: web, app, partner"},
+        "order_ts": {"type": "TIMESTAMP", "description": "UTC timestamp of order"},
+        "status": {"type": "STRING", "description": "Order status: paid, pending, cancelled"},
+        "total_amount": {"type": "FLOAT64", "description": "Order-level total (already includes all items)"}
+      }
+    },
+    "order_items": {
+      "columns": {
+        "item_id": {"type": "INT64", "description": "Primary key"},
+        "order_id": {"type": "INT64", "description": "Foreign key to orders; one order has one or more items"},
+        "sku": {"type": "STRING", "description": "Product SKU"},
+        "quantity": {"type": "INT64", "description": "Units of this SKU in the order"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "orders", "rows": [
+      {"order_id": 1, "channel": "web", "order_ts": "2025-01-05T10:00:00Z", "status": "paid", "total_amount": 100.0},
+      {"order_id": 2, "channel": "web", "order_ts": "2025-01-12T10:00:00Z", "status": "paid", "total_amount": 50.0},
+      {"order_id": 3, "channel": "app", "order_ts": "2025-01-20T10:00:00Z", "status": "paid", "total_amount": 30.0},
+      {"order_id": 4, "channel": "web", "order_ts": "2025-01-25T10:00:00Z", "status": "paid", "total_amount": 0.0}
+    ]},
+    {"table": "order_items", "rows": [
+      {"item_id": 1, "order_id": 1, "sku": "A", "quantity": 1},
+      {"item_id": 2, "order_id": 1, "sku": "B", "quantity": 2},
+      {"item_id": 3, "order_id": 2, "sku": "A", "quantity": 1},
+      {"item_id": 4, "order_id": 3, "sku": "C", "quantity": 4},
+      {"item_id": 5, "order_id": 4, "sku": "D", "quantity": 1}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"month": "2025-01-01", "channel": "app", "order_count": 1, "aov": 30.0, "avg_items_per_order": 4.0},
+    {"month": "2025-01-01", "channel": "web", "order_count": 3, "aov": 50.0, "avg_items_per_order": 1.67}
+  ],
+  "edge_cases": [
+    "Order with multiple item rows must contribute total_amount only once",
+    "Zero-value orders count toward order_count and lower the AOV",
+    "Orders with no rows in order_items should still count toward AOV with 0 items"
+  ],
+  "common_failure_modes": [
+    "FM1: Joining orders to order_items before summing total_amount multiplies the order total by the number of item rows",
+    "FM3: Using AVG(total_amount) after the join averages over item rows instead of orders"
+  ]
+}

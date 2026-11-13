@@ -1,0 +1,49 @@
+{
+  "task_id": "bq_006",
+  "category": "bigquery_sql",
+  "description": "Calculate daily revenue by customer country for the online store. Revenue is the sum of total_amount for orders with status = 'completed'. The day is the UTC calendar date of order_ts. Output columns: order_day (DATE), country (STRING), total_revenue (FLOAT64), order_count (INT64). Sort by order_day, country.",
+  "schema": {
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "customer_id": {"type": "INT64", "description": "Foreign key to customers"},
+        "order_ts": {"type": "TIMESTAMP", "description": "UTC timestamp of order placement"},
+        "status": {"type": "STRING", "description": "Order status: pending, completed, cancelled"},
+        "total_amount": {"type": "FLOAT64", "description": "Order total in USD"}
+      }
+    },
+    "customers": {
+      "columns": {
+        "customer_id": {"type": "INT64", "description": "Primary key"},
+        "country": {"type": "STRING", "description": "ISO country code, may be NULL for legacy accounts"},
+        "created_at": {"type": "TIMESTAMP", "description": "Account creation time (UTC)"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "orders", "rows": [
+      {"order_id": 1, "customer_id": 10, "order_ts": "2025-03-01T08:00:00Z", "status": "completed", "total_amount": 120.0},
+      {"order_id": 2, "customer_id": 11, "order_ts": "2025-03-01T23:59:59Z", "status": "completed", "total_amount": 80.0},
+      {"order_id": 3, "customer_id": 10, "order_ts": "2025-03-02T00:00:00Z", "status": "completed", "total_amount": 50.0},
+      {"order_id": 4, "customer_id": 12, "order_ts": "2025-03-02T11:00:00Z", "status": "cancelled", "total_amount": 200.0}
+    ]},
+    {"table": "customers", "rows": [
+      {"customer_id": 10, "country": "US", "created_at": "2024-06-01T00:00:00Z"},
+      {"customer_id": 11, "country": "US", "created_at": "2024-07-01T00:00:00Z"},
+      {"customer_id": 12, "country": "DE", "created_at": "2024-08-01T00:00:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"order_day": "2025-03-01", "country": "US", "total_revenue": 200.0, "order_count": 2},
+    {"order_day": "2025-03-02", "country": "US", "total_revenue": 50.0, "order_count": 1}
+  ],
+  "edge_cases": [
+    "Order placed at 23:59:59 UTC belongs to that day; 00:00:00 belongs to the next day",
+    "Cancelled and pending orders must be excluded",
+    "Customers with NULL country should be reported under country = NULL, not dropped"
+  ],
+  "common_failure_modes": [
+    "FM2: Using DATE(order_ts, 'America/Los_Angeles') or a local timezone instead of UTC shifts orders across day boundaries",
+    "FM3: Grouping by order_ts instead of DATE(order_ts) produces one row per order"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "task_id": "af_063",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for fintech_app that rebuilds the daily card_authorizations partition in Postgres in a way that is safe under retries and manual re-runs. The DAG should: (1) build the day's data into a scratch table named with the run's ds_nodash, (2) validate row count and amount checksum against the source, (3) in a single transaction detach/drop the existing day partition and attach the scratch table as the new partition, (4) drop leftover scratch tables older than 3 days. Tasks retry 3 times with a 5-minute delay. A failed validation must leave the existing production partition untouched.",
+  "schema": {
+    "source": "payments.card_auth_events",
+    "scratch_table": "scratch.card_auth_{{ ds_nodash }}",
+    "target": "analytics.card_authorizations (range partitioned by auth_date)"
+  },
+  "expected_behavior": {
+    "schedule": "0 3 * * *",
+    "catchup": true,
+    "max_active_runs": 1,
+    "depends_on_past": false,
+    "retries": 3,
+    "retry_delay": "0:05:00",
+    "swap": "single transaction",
+    "validation": [
+      "row_count equality",
+      "sum(amount_minor) equality"
+    ]
+  },
+  "edge_cases": [
+    "The scratch table build must start with DROP TABLE IF EXISTS so a retry does not append to a half-built table",
+    "The swap must be atomic; a failure between detach and attach must not leave the day without a partition",
+    "Day boundary: auth_date is derived from auth_ts converted to UTC, half-open [ds, ds + 1 day)",
+    "Scratch cleanup must not drop the scratch table of the currently running date during a backfill"
+  ],
+  "common_failure_modes": [
+    "FM6: INSERT INTO the scratch table without a drop duplicates rows on retry",
+    "FM2: BETWEEN ds AND ds+1 includes midnight of the next day in two partitions",
+    "FM7: Validation compares counts only, missing amount corruption from a bad cast"
+  ]
+}

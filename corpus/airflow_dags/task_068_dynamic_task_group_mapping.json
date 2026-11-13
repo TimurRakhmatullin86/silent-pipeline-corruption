@@ -1,0 +1,29 @@
+{
+  "task_id": "af_068",
+  "category": "airflow_dag",
+  "description": "Create an Airflow 2.5+ DAG for health_portal that runs an identical extract-validate-load sequence for each clinic using a mapped task group. The DAG should: (1) fetch the list of clinics with their source connection ids, (2) expand a @task_group over that list, where each group instance runs extract_appointments >> validate >> load, (3) inside the group, a validate failure must stop only that clinic's load, (4) after all groups, run 'build_network_summary' with rows from successful clinics and write a list of failed clinic ids to an ops table.",
+  "schema": {
+    "source": "per-clinic Postgres databases: scheduling.appointments",
+    "target": "health_portal.core.appointments, health_portal.ops.clinic_load_failures"
+  },
+  "expected_behavior": {
+    "schedule": "0 2 * * *",
+    "catchup": false,
+    "mapped_group": "clinic_pipeline.expand(clinic=get_clinics())",
+    "max_active_tis_per_dagrun": 6,
+    "summary_trigger_rule": "all_done",
+    "retries": 1,
+    "run_status": "failed if any clinic failed"
+  },
+  "edge_cases": [
+    "Map index alignment: the load for clinic N must receive the extract output of clinic N; inside a mapped task group this is automatic, across separately mapped tasks it is not",
+    "Appointments are stored in each clinic's local time; the clinic's timezone must travel with the mapped argument and be applied before loading to UTC",
+    "The summary task must identify failed clinics from task instance states by map_index, then translate map_index to clinic id",
+    "A clinic removed from the list between retries must not shift other clinics' map indexes mid-run"
+  ],
+  "common_failure_modes": [
+    "FM6: Separately mapped extract and load tasks zipped incorrectly, loading one clinic's rows under another clinic's id",
+    "FM2: Local appointment times stored as if they were UTC",
+    "FM6: all_done summary as the only leaf hides clinic failures from the DAG run state"
+  ]
+}

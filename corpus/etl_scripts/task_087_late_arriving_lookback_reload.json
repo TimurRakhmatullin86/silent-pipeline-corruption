@@ -1,0 +1,90 @@
+{
+  "task_id": "etl_087",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for media_stream that loads playback events into a date-partitioned Parquet dataset while handling late-arriving events. For a given run date (2025-04-10 in the sample) the script should: (1) read events ingested on the run date, (2) derive event_date from event_ts in UTC, (3) accept events whose event_date is within the lookback window [run_date - 2 days, run_date], (4) write events outside the window to a late_rejects file, (5) for every affected event_date, merge new events with the existing partition, deduplicate on event_id, and overwrite that partition only.",
+  "schema": {
+    "source_columns": {
+      "event_id": "string",
+      "user_id": "string",
+      "event_ts": "string (ISO 8601)",
+      "ingested_at": "string (ISO 8601)",
+      "watch_seconds": "int"
+    },
+    "target_columns": {
+      "event_id": "string",
+      "user_id": "string",
+      "event_ts": "datetime64[ns, UTC]",
+      "event_date": "date (partition)",
+      "watch_seconds": "int64"
+    }
+  },
+  "test_data_sample": [
+    {
+      "event_id": "e1",
+      "user_id": "u1",
+      "event_ts": "2025-04-08T23:50:00Z",
+      "ingested_at": "2025-04-10T01:00:00Z",
+      "watch_seconds": 120
+    },
+    {
+      "event_id": "e2",
+      "user_id": "u1",
+      "event_ts": "2025-04-10T00:00:00Z",
+      "ingested_at": "2025-04-10T00:01:00Z",
+      "watch_seconds": 60
+    },
+    {
+      "event_id": "e3",
+      "user_id": "u2",
+      "event_ts": "2025-04-07T12:00:00Z",
+      "ingested_at": "2025-04-10T02:00:00Z",
+      "watch_seconds": 900
+    },
+    {
+      "event_id": "e4",
+      "user_id": "u2",
+      "event_ts": "2025-04-10T01:30:00+03:00",
+      "ingested_at": "2025-04-10T02:00:00Z",
+      "watch_seconds": 300
+    },
+    {
+      "event_id": "e1",
+      "user_id": "u1",
+      "event_ts": "2025-04-08T23:50:00Z",
+      "ingested_at": "2025-04-10T03:00:00Z",
+      "watch_seconds": 120
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "event_id": "e1",
+      "user_id": "u1",
+      "event_date": "2025-04-08",
+      "watch_seconds": 120
+    },
+    {
+      "event_id": "e4",
+      "user_id": "u2",
+      "event_date": "2025-04-09",
+      "watch_seconds": 300
+    },
+    {
+      "event_id": "e2",
+      "user_id": "u1",
+      "event_date": "2025-04-10",
+      "watch_seconds": 60
+    }
+  ],
+  "edge_cases": [
+    "e4 has a +03:00 offset: 2025-04-10T01:30+03:00 is 2025-04-09T22:30Z, so it belongs to the 2025-04-09 partition",
+    "e2 at exactly midnight UTC belongs to 2025-04-10",
+    "e3 (2025-04-07) is outside the 2-day lookback and goes to late_rejects, not silently dropped",
+    "e1 is delivered twice and may also already exist in the 2025-04-08 partition; dedup must span new and existing rows",
+    "Only partitions 04-08, 04-09 and 04-10 may be rewritten"
+  ],
+  "common_failure_modes": [
+    "FM2: Partitioning by ingested_at or by the local date string puts e1 and e4 in the wrong day",
+    "FM3: Appending to existing partitions without dedup double counts watch_seconds",
+    "FM7: Out-of-window events dropped without a reject record"
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "task_id": "bq_068",
+  "category": "bigquery_sql",
+  "description": "Reconcile internally booked payments against payment-processor settlements by payment reference. The processor can settle one payment in several partial settlement rows, and the internal ledger can hold several rows per reference (corrections); aggregate each side per reference first. Then classify every reference found on either side: 'matched' when both sides exist and ABS(internal - processor) <= 0.01; 'amount_mismatch' when both exist and the difference is larger; 'missing_in_processor' when only the internal side exists; 'missing_in_internal' when only the processor side exists. Rows with a NULL reference on either side are excluded from matching. Output columns: reference (STRING), internal_amount (FLOAT64), processor_amount (FLOAT64), difference (FLOAT64, internal minus processor, 2 decimals; NULL when one side is missing), status (STRING). Sort by reference.",
+  "schema": {
+    "internal_payments": {
+      "columns": {
+        "entry_id": {"type": "INT64", "description": "Primary key"},
+        "reference": {"type": "STRING", "description": "Payment reference shared with the processor"},
+        "amount": {"type": "FLOAT64", "description": "Booked amount; corrections are separate signed rows"},
+        "booked_at": {"type": "TIMESTAMP", "description": "UTC booking time"}
+      }
+    },
+    "processor_settlements": {
+      "columns": {
+        "settlement_id": {"type": "INT64", "description": "Primary key"},
+        "reference": {"type": "STRING", "description": "Payment reference; NULL for processor fees"},
+        "amount": {"type": "FLOAT64", "description": "Settled amount; a payment may be split across rows"},
+        "settled_at": {"type": "TIMESTAMP", "description": "UTC settlement time"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "internal_payments", "rows": [
+      {"entry_id": 1, "reference": "r1", "amount": 100.0, "booked_at": "2025-04-01T10:00:00Z"},
+      {"entry_id": 2, "reference": "r2", "amount": 50.0, "booked_at": "2025-04-01T11:00:00Z"},
+      {"entry_id": 3, "reference": "r3", "amount": 75.0, "booked_at": "2025-04-01T12:00:00Z"}
+    ]},
+    {"table": "processor_settlements", "rows": [
+      {"settlement_id": 1, "reference": "r1", "amount": 60.0, "settled_at": "2025-04-02T00:00:00Z"},
+      {"settlement_id": 2, "reference": "r1", "amount": 40.0, "settled_at": "2025-04-03T00:00:00Z"},
+      {"settlement_id": 3, "reference": "r2", "amount": 49.5, "settled_at": "2025-04-02T00:00:00Z"},
+      {"settlement_id": 4, "reference": "r4", "amount": 20.0, "settled_at": "2025-04-02T00:00:00Z"},
+      {"settlement_id": 5, "reference": null, "amount": -1.5, "settled_at": "2025-04-02T00:00:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"reference": "r1", "internal_amount": 100.0, "processor_amount": 100.0, "difference": 0.0, "status": "matched"},
+    {"reference": "r2", "internal_amount": 50.0, "processor_amount": 49.5, "difference": 0.5, "status": "amount_mismatch"},
+    {"reference": "r3", "internal_amount": 75.0, "processor_amount": null, "difference": null, "status": "missing_in_processor"},
+    {"reference": "r4", "internal_amount": null, "processor_amount": 20.0, "difference": null, "status": "missing_in_internal"}
+  ],
+  "edge_cases": [
+    "r1 is settled in two parts (60 + 40) and must match the single internal booking of 100",
+    "Floating point sums need the 0.01 tolerance rather than strict equality",
+    "References present on only one side must be reported from both directions",
+    "Processor fee rows with NULL reference must not appear or be matched to each other"
+  ],
+  "common_failure_modes": [
+    "FM1: FULL OUTER JOIN on raw rows duplicates the internal 100 against both settlement rows and reports two mismatches",
+    "FM1: LEFT JOIN from the internal side never reveals r4 (missing_in_internal)",
+    "FM5: COALESCE(amount, 0) before classification turns a missing side into an amount_mismatch instead of a missing_* status"
+  ]
+}

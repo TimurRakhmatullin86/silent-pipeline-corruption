@@ -1,0 +1,96 @@
+{
+  "task_id": "etl_113",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for travel_booking that computes daily revenue in USD. The script should: (1) exclude orders with status 'refunded', (2) derive order_date from order_ts in UTC, (3) convert amounts to USD using the fx rate for the order's currency on the order date, falling back to the most recent earlier rate when no rate exists for that date (weekends, holidays); USD amounts use rate 1.0, (4) deduplicate the rates table on (currency, rate_date) before joining, (5) aggregate revenue_usd (rounded to 2 decimals) and order_count per order_date, (6) fail if any order has no usable rate. In the sample, rows are tagged with _dataset = orders or fx_rates.",
+  "schema": {
+    "source_columns": {
+      "orders": {
+        "order_id": "string",
+        "order_ts": "string (ISO 8601)",
+        "amount": "float",
+        "currency": "string",
+        "status": "string"
+      },
+      "fx_rates": {
+        "currency": "string",
+        "rate_date": "date",
+        "rate_to_usd": "float"
+      }
+    },
+    "target_columns": {
+      "order_date": "date",
+      "revenue_usd": "float64",
+      "order_count": "int64"
+    }
+  },
+  "test_data_sample": [
+    {
+      "_dataset": "orders",
+      "order_id": "o1",
+      "order_ts": "2025-03-07T23:30:00Z",
+      "amount": 100.0,
+      "currency": "EUR",
+      "status": "completed"
+    },
+    {
+      "_dataset": "orders",
+      "order_id": "o2",
+      "order_ts": "2025-03-08T10:00:00Z",
+      "amount": 50.0,
+      "currency": "EUR",
+      "status": "completed"
+    },
+    {
+      "_dataset": "orders",
+      "order_id": "o3",
+      "order_ts": "2025-03-08T12:00:00Z",
+      "amount": 20.0,
+      "currency": "USD",
+      "status": "completed"
+    },
+    {
+      "_dataset": "orders",
+      "order_id": "o4",
+      "order_ts": "2025-03-07T09:00:00Z",
+      "amount": 30.0,
+      "currency": "USD",
+      "status": "refunded"
+    },
+    {
+      "_dataset": "fx_rates",
+      "currency": "EUR",
+      "rate_date": "2025-03-07",
+      "rate_to_usd": 1.08
+    },
+    {
+      "_dataset": "fx_rates",
+      "currency": "EUR",
+      "rate_date": "2025-03-07",
+      "rate_to_usd": 1.08
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "order_date": "2025-03-07",
+      "revenue_usd": 108.0,
+      "order_count": 1
+    },
+    {
+      "order_date": "2025-03-08",
+      "revenue_usd": 74.0,
+      "order_count": 2
+    }
+  ],
+  "edge_cases": [
+    "The EUR rate for 2025-03-07 is present twice; joining without deduplicating doubles o1's revenue to 216.00",
+    "2025-03-08 is a Saturday with no EUR rate: o2 uses the 2025-03-07 rate (as-of join), giving 54.00",
+    "USD orders have no rate rows; an inner join on the rates table would drop o3",
+    "The refunded order o4 is excluded from both revenue and order_count",
+    "order_count must count distinct order_id values"
+  ],
+  "common_failure_modes": [
+    "FM1: Duplicate rate rows fan out the join and inflate revenue",
+    "FM1: Exact-date inner join drops weekend orders and base-currency orders",
+    "FM3: order_count computed with count(*) after a fanned-out join"
+  ]
+}

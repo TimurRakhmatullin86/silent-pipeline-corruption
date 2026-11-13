@@ -1,0 +1,35 @@
+{
+  "task_id": "af_046",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for health_portal that pulls nightly lab-result batches from a partner API. The DAG should: (1) use an HttpSensor to poll GET /v2/batches/{{ ds }}/status until the JSON body reports state == 'READY', (2) download the batch manifest, (3) fetch each file listed in the manifest into GCS, (4) load the files into a BigQuery raw table using a load job with WRITE_TRUNCATE on the day partition, (5) run a row-count reconciliation between the manifest and the loaded partition. The DAG runs daily at 03:30 UTC. The sensor should poll every 5 minutes with exponential backoff, time out after 3 hours, and treat HTTP 404 as 'not ready yet' rather than as a failure.",
+  "schema": {
+    "source": "https://api.partner-labs.example/v2/batches/{{ ds }}/status",
+    "landing": "gs://health-portal-raw/lab_results/dt={{ ds }}/",
+    "target": "health_portal.raw.lab_results${{ ds_nodash }}"
+  },
+  "expected_behavior": {
+    "schedule": "30 3 * * *",
+    "catchup": false,
+    "sensor_poke_interval": 300,
+    "sensor_exponential_backoff": true,
+    "sensor_timeout": 10800,
+    "sensor_mode": "reschedule",
+    "extra_options": {
+      "check_response": false
+    },
+    "write_disposition": "WRITE_TRUNCATE",
+    "retries": 2
+  },
+  "edge_cases": [
+    "HttpSensor raises on 404 by default; response_check must handle 404 as False instead of failing the task",
+    "A state of 'FAILED' in the status body must fail the sensor immediately rather than polling until timeout",
+    "Load must target the single day partition with WRITE_TRUNCATE so reruns are idempotent",
+    "Manifest row count of zero is valid on holidays and must not fail reconciliation",
+    "Reconciliation mismatch must fail the DAG"
+  ],
+  "common_failure_modes": [
+    "FM6: response_check returns True for any 200 response without inspecting the state field",
+    "FM7: Reconciliation compares loaded rows against the table total instead of the day partition",
+    "FM6: WRITE_APPEND on rerun duplicates the whole batch"
+  ]
+}

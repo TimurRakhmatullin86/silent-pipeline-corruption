@@ -1,0 +1,52 @@
+{
+  "task_id": "bq_036",
+  "category": "bigquery_sql",
+  "description": "The orders table went through a schema migration: the legacy STRING column customer_ref (format 'C-0010', populated before the migration) was replaced by the INT64 column customer_id. During the transition some rows have both, some only one, and some neither. Derive a unified customer key: use customer_id when present; otherwise parse customer_ref by trimming whitespace, upper-casing, removing the 'C-' prefix and casting to INT64 (unparseable values yield NULL). Count orders per resolved customer and join to customers for the name. Orders with no resolvable key are excluded from the per-customer output. Output columns: customer_id (INT64), customer_name (STRING), order_count (INT64). Sort by customer_id.",
+  "schema": {
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "customer_ref": {"type": "STRING", "description": "DEPRECATED legacy key like 'C-0010'; inconsistent casing/whitespace"},
+        "customer_id": {"type": "INT64", "description": "New key; NULL for rows written before the migration"},
+        "order_ts": {"type": "TIMESTAMP", "description": "UTC order timestamp"}
+      }
+    },
+    "customers": {
+      "columns": {
+        "customer_id": {"type": "INT64", "description": "Primary key"},
+        "customer_name": {"type": "STRING", "description": "Display name"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "orders", "rows": [
+      {"order_id": 1, "customer_ref": "C-0010", "customer_id": null, "order_ts": "2025-02-10T10:00:00Z"},
+      {"order_id": 2, "customer_ref": null, "customer_id": 10, "order_ts": "2025-03-05T10:00:00Z"},
+      {"order_id": 3, "customer_ref": "C-0011", "customer_id": 11, "order_ts": "2025-03-01T10:00:00Z"},
+      {"order_id": 4, "customer_ref": "c-0012 ", "customer_id": null, "order_ts": "2025-02-20T10:00:00Z"},
+      {"order_id": 5, "customer_ref": null, "customer_id": null, "order_ts": "2025-02-21T10:00:00Z"},
+      {"order_id": 6, "customer_ref": "GUEST", "customer_id": null, "order_ts": "2025-02-22T10:00:00Z"}
+    ]},
+    {"table": "customers", "rows": [
+      {"customer_id": 10, "customer_name": "Acme"},
+      {"customer_id": 11, "customer_name": "Birch"},
+      {"customer_id": 12, "customer_name": "Cedar"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"customer_id": 10, "customer_name": "Acme", "order_count": 2},
+    {"customer_id": 11, "customer_name": "Birch", "order_count": 1},
+    {"customer_id": 12, "customer_name": "Cedar", "order_count": 1}
+  ],
+  "edge_cases": [
+    "Legacy and new rows for the same customer (orders 1 and 2) must be merged into one key",
+    "Lower-case prefix and trailing whitespace in customer_ref ('c-0012 ')",
+    "Non-parseable reference ('GUEST') must not raise a cast error",
+    "Rows with both columns populated count once"
+  ],
+  "common_failure_modes": [
+    "FM5: Grouping only by the new customer_id silently drops all pre-migration orders",
+    "FM4: CAST instead of SAFE_CAST aborts the query on 'GUEST'; REPLACE is case-sensitive and misses 'c-'",
+    "FM7: No count of unresolved orders is tracked, so the dropped rows go unnoticed"
+  ]
+}

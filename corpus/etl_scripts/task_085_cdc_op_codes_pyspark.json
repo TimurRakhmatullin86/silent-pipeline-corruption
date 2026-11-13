@@ -1,0 +1,100 @@
+{
+  "task_id": "etl_085",
+  "category": "etl_script",
+  "description": "Write a PySpark ETL script for fintech_app that applies a batch of change-data-capture records to an accounts Delta table. Each CDC record has an operation code (I = insert, U = update, D = delete) and a monotonically increasing change_seq. The script should: (1) drop exact duplicate CDC records, (2) for each account_id keep only the record with the highest change_seq in the batch, (3) MERGE into the target: I and U upsert the row; D performs a soft delete (is_deleted = true) and keeps the last known balance, (4) treat a U for an account not present in the target as an insert, (5) store last_change_seq and skip records whose change_seq is not greater than the target's last_change_seq.",
+  "schema": {
+    "source_columns": {
+      "account_id": "string",
+      "op": "string (I, U, D)",
+      "change_seq": "long",
+      "balance_minor": "long (nullable, null on D)",
+      "currency": "string (nullable on D)"
+    },
+    "target_columns": {
+      "account_id": "string",
+      "balance_minor": "long",
+      "currency": "string",
+      "is_deleted": "boolean",
+      "last_change_seq": "long"
+    }
+  },
+  "test_data_sample": [
+    {
+      "account_id": "a1",
+      "op": "I",
+      "change_seq": 1,
+      "balance_minor": 10000,
+      "currency": "USD"
+    },
+    {
+      "account_id": "a1",
+      "op": "U",
+      "change_seq": 2,
+      "balance_minor": 15000,
+      "currency": "USD"
+    },
+    {
+      "account_id": "a1",
+      "op": "U",
+      "change_seq": 2,
+      "balance_minor": 15000,
+      "currency": "USD"
+    },
+    {
+      "account_id": "a2",
+      "op": "I",
+      "change_seq": 3,
+      "balance_minor": 5000,
+      "currency": "EUR"
+    },
+    {
+      "account_id": "a2",
+      "op": "D",
+      "change_seq": 4,
+      "balance_minor": null,
+      "currency": null
+    },
+    {
+      "account_id": "a3",
+      "op": "U",
+      "change_seq": 5,
+      "balance_minor": 7500,
+      "currency": "USD"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "account_id": "a1",
+      "balance_minor": 15000,
+      "currency": "USD",
+      "is_deleted": false,
+      "last_change_seq": 2
+    },
+    {
+      "account_id": "a2",
+      "balance_minor": 5000,
+      "currency": "EUR",
+      "is_deleted": true,
+      "last_change_seq": 4
+    },
+    {
+      "account_id": "a3",
+      "balance_minor": 7500,
+      "currency": "USD",
+      "is_deleted": false,
+      "last_change_seq": 5
+    }
+  ],
+  "edge_cases": [
+    "a2 is inserted and deleted in the same batch: the D row has null balance and currency, so the last non-null values (5000, EUR) must be carried into the soft-deleted row",
+    "Duplicate delivery of a1 change_seq 2 must not cause a MERGE 'multiple source rows matched' error or a double apply",
+    "a3 arrives as U with no prior row and must be inserted",
+    "Replaying the same batch must be a no-op thanks to the last_change_seq guard",
+    "Ordering must use change_seq, never the arrival order of rows in the file"
+  ],
+  "common_failure_modes": [
+    "FM1: MERGE source not reduced to one row per key, causing non-deterministic or failed merges",
+    "FM6: Applying D by overwriting all columns writes null balance into the soft-deleted row",
+    "FM7: No guard on last_change_seq, so a replayed older batch reverts newer state"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "task_id": "af_065",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG factory for saas_metrics that generates one ingestion DAG per source system from a YAML config file. Each config entry provides: name, schedule, connection id, list of tables, and owner. The factory must: (1) load the YAML once per parse, (2) create a DAG per entry with a unique dag_id 'ingest_<name>', (3) create extract and load tasks per table inside a TaskGroup, (4) register every DAG in globals(), (5) fail parsing loudly on duplicate names or invalid cron strings. Generated DAGs must have catchup=False and static start dates.",
+  "schema": {
+    "source": "dags/config/sources.yaml (name, schedule, conn_id, tables[], owner)",
+    "target": "raw.<source_name>__<table>"
+  },
+  "expected_behavior": {
+    "dag_id_pattern": "ingest_{name}",
+    "catchup": false,
+    "start_date": "static pendulum datetime",
+    "registration": "globals()[dag_id] = dag",
+    "per_table_tasks": [
+      "extract_{table}",
+      "load_{table}"
+    ],
+    "default_retries": 2,
+    "duplicate_name_policy": "raise at parse time"
+  },
+  "edge_cases": [
+    "Closures in a loop: callables must bind the table and connection via default arguments or op_kwargs, not capture the loop variable",
+    "Removing a source from the YAML makes its DAG disappear from the UI while history remains; this should be documented, not hidden by a try/except",
+    "start_date must not be datetime.now() or days_ago-based dynamic values",
+    "No database or network calls at parse time; only reading the local YAML file",
+    "Table names containing dots or dashes must be sanitized into valid task ids"
+  ],
+  "common_failure_modes": [
+    "FM6: Late-binding closure makes every generated task extract the last table in the config",
+    "FM6: DAG objects created in a function but never placed in globals() are not discovered by the scheduler",
+    "FM6: Dynamic start_date causes runs to never be scheduled"
+  ]
+}

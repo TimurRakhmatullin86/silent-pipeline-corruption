@@ -1,0 +1,88 @@
+{
+  "task_id": "etl_102",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for adtech_platform that removes accidental duplicate click events. Two clicks by the same user on the same ad are duplicates when the later one occurs less than 5 seconds after the previous kept click. The script should: (1) parse click_ts to UTC, (2) sort by user_id, ad_id, click_ts, (3) iterate within each (user_id, ad_id) group keeping a click only if it is at least 5 seconds after the last kept click, (4) output the kept clicks and a count of removed duplicates per group.",
+  "schema": {
+    "source_columns": {
+      "click_id": "string",
+      "user_id": "string",
+      "ad_id": "string",
+      "click_ts": "string (ISO 8601)"
+    },
+    "target_columns": {
+      "click_id": "string",
+      "user_id": "string",
+      "ad_id": "string",
+      "click_ts": "datetime64[ns, UTC]"
+    }
+  },
+  "test_data_sample": [
+    {
+      "click_id": "k1",
+      "user_id": "u1",
+      "ad_id": "ad7",
+      "click_ts": "2025-08-01T10:00:00Z"
+    },
+    {
+      "click_id": "k2",
+      "user_id": "u1",
+      "ad_id": "ad7",
+      "click_ts": "2025-08-01T10:00:03Z"
+    },
+    {
+      "click_id": "k3",
+      "user_id": "u1",
+      "ad_id": "ad7",
+      "click_ts": "2025-08-01T10:00:06Z"
+    },
+    {
+      "click_id": "k4",
+      "user_id": "u1",
+      "ad_id": "ad7",
+      "click_ts": "2025-08-01T10:00:11Z"
+    },
+    {
+      "click_id": "k5",
+      "user_id": "u2",
+      "ad_id": "ad7",
+      "click_ts": "2025-08-01T10:00:01Z"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "click_id": "k1",
+      "user_id": "u1",
+      "ad_id": "ad7",
+      "click_ts": "2025-08-01T10:00:00Z"
+    },
+    {
+      "click_id": "k3",
+      "user_id": "u1",
+      "ad_id": "ad7",
+      "click_ts": "2025-08-01T10:00:06Z"
+    },
+    {
+      "click_id": "k4",
+      "user_id": "u1",
+      "ad_id": "ad7",
+      "click_ts": "2025-08-01T10:00:11Z"
+    },
+    {
+      "click_id": "k5",
+      "user_id": "u2",
+      "ad_id": "ad7",
+      "click_ts": "2025-08-01T10:00:01Z"
+    }
+  ],
+  "edge_cases": [
+    "k3 is 3 seconds after the removed k2 but 6 seconds after the last kept click k1, so it is kept; comparing each row to its immediate predecessor (diff/lag) would wrongly drop it",
+    "k4 is exactly 5 seconds after k3: the rule is strict (< 5 s is a duplicate), so it is kept",
+    "k5 belongs to another user and is unaffected even though it is within 5 seconds of k1",
+    "Removed duplicates for (u1, ad7) = 1"
+  ],
+  "common_failure_modes": [
+    "FM3: Lag-based comparison against the previous row instead of the previous kept row removes chains of valid clicks",
+    "FM2: Off-by-one on the 5-second boundary (<= instead of <)",
+    "FM1: Window partition missing ad_id or user_id dedups across unrelated users"
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "task_id": "bq_047",
+  "category": "bigquery_sql",
+  "description": "Compute, for every calendar date between the first and last activity date, the daily active users (DAU) and the rolling 28-day active users: the number of DISTINCT non-internal users active on at least one day in the window [date - 27 days, date]. Dates with no activity must still be emitted (dau = 0) with the correct rolling value. Output columns: activity_date (DATE), dau (INT64), rolling_28d_users (INT64). Sort by activity_date.",
+  "schema": {
+    "user_activity": {
+      "columns": {
+        "user_id": {"type": "INT64", "description": "Foreign key to users"},
+        "activity_date": {"type": "DATE", "description": "UTC date on which the user was active; may contain duplicate rows"},
+        "events": {"type": "INT64", "description": "Number of events in the row"}
+      }
+    },
+    "users": {
+      "columns": {
+        "user_id": {"type": "INT64", "description": "Primary key"},
+        "is_internal": {"type": "BOOL", "description": "Employees and test users"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "user_activity", "rows": [
+      {"user_id": 1, "activity_date": "2025-06-01", "events": 5},
+      {"user_id": 2, "activity_date": "2025-06-01", "events": 2},
+      {"user_id": 2, "activity_date": "2025-06-28", "events": 1},
+      {"user_id": 2, "activity_date": "2025-06-28", "events": 3},
+      {"user_id": 3, "activity_date": "2025-06-29", "events": 7},
+      {"user_id": 9, "activity_date": "2025-06-15", "events": 50}
+    ]},
+    {"table": "users", "rows": [
+      {"user_id": 1, "is_internal": false},
+      {"user_id": 2, "is_internal": false},
+      {"user_id": 3, "is_internal": false},
+      {"user_id": 9, "is_internal": true}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"activity_date": "2025-06-01", "dau": 2, "rolling_28d_users": 2},
+    {"activity_date": "2025-06-02", "dau": 0, "rolling_28d_users": 2},
+    {"activity_date": "2025-06-28", "dau": 1, "rolling_28d_users": 2},
+    {"activity_date": "2025-06-29", "dau": 1, "rolling_28d_users": 2}
+  ],
+  "edge_cases": [
+    "On 2025-06-28 the window still includes 2025-06-01 (28 days inclusive); on 2025-06-29 user 1 drops out",
+    "A user active on several days of the window counts once",
+    "Dates without any activity (e.g. 2025-06-02) must be present",
+    "Internal user 9 is excluded even though it is the only activity on 2025-06-15"
+  ],
+  "common_failure_modes": [
+    "FM4: COUNT(DISTINCT ...) OVER with an ORDER BY / frame is not supported in BigQuery; summing daily DAU over 28 rows double-counts repeat users",
+    "FM2: Window of 28 PRECEDING (29 days) or 27 rows over sparse dates gives off-by-one results",
+    "FM3: Using only dates that have activity as the spine omits zero-activity days"
+  ]
+}

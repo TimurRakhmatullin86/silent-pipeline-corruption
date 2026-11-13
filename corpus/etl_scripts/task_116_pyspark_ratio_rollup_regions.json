@@ -1,0 +1,116 @@
+{
+  "task_id": "etl_116",
+  "category": "etl_script",
+  "description": "Write a PySpark ETL script for retail_chain that rolls store-level daily metrics up to region level. The script should: (1) left-join store metrics to the store-to-region mapping, assigning 'UNASSIGNED' to stores without a mapping, after reducing the mapping to one current row per store, (2) aggregate per region: revenue, transactions and visitors, (3) compute avg_basket = revenue / transactions and conversion_rate = transactions / visitors from the regional sums, rounded to 2 and 4 decimals, (4) return null conversion_rate for a region when any of its stores has unknown visitors, rather than a rate over partial data. In the sample, rows are tagged with _dataset = store_metrics or store_region_map.",
+  "schema": {
+    "source_columns": {
+      "store_metrics": {
+        "store_id": "string",
+        "revenue": "double",
+        "transactions": "long",
+        "visitors": "long (nullable)"
+      },
+      "store_region_map": {
+        "store_id": "string",
+        "region": "string",
+        "is_current": "boolean"
+      }
+    },
+    "target_columns": {
+      "region": "string",
+      "revenue": "double",
+      "transactions": "long",
+      "avg_basket": "double",
+      "conversion_rate": "double (nullable)"
+    }
+  },
+  "test_data_sample": [
+    {
+      "_dataset": "store_metrics",
+      "store_id": "s1",
+      "revenue": 1000.0,
+      "transactions": 100,
+      "visitors": 400
+    },
+    {
+      "_dataset": "store_metrics",
+      "store_id": "s2",
+      "revenue": 90.0,
+      "transactions": 3,
+      "visitors": 10
+    },
+    {
+      "_dataset": "store_metrics",
+      "store_id": "s3",
+      "revenue": 500.0,
+      "transactions": 50,
+      "visitors": null
+    },
+    {
+      "_dataset": "store_metrics",
+      "store_id": "s4",
+      "revenue": 10.0,
+      "transactions": 1,
+      "visitors": 5
+    },
+    {
+      "_dataset": "store_region_map",
+      "store_id": "s1",
+      "region": "West",
+      "is_current": true
+    },
+    {
+      "_dataset": "store_region_map",
+      "store_id": "s1",
+      "region": "North",
+      "is_current": false
+    },
+    {
+      "_dataset": "store_region_map",
+      "store_id": "s2",
+      "region": "West",
+      "is_current": true
+    },
+    {
+      "_dataset": "store_region_map",
+      "store_id": "s3",
+      "region": "East",
+      "is_current": true
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "region": "East",
+      "revenue": 500.0,
+      "transactions": 50,
+      "avg_basket": 10.0,
+      "conversion_rate": null
+    },
+    {
+      "region": "UNASSIGNED",
+      "revenue": 10.0,
+      "transactions": 1,
+      "avg_basket": 10.0,
+      "conversion_rate": 0.2
+    },
+    {
+      "region": "West",
+      "revenue": 1090.0,
+      "transactions": 103,
+      "avg_basket": 10.58,
+      "conversion_rate": 0.2512
+    }
+  ],
+  "edge_cases": [
+    "West avg_basket is 1090 / 103 = 10.58; averaging the store-level baskets (10.00 and 30.00) gives 20.00",
+    "s1 has a historical mapping to North; joining without filtering is_current counts s1's revenue in two regions",
+    "s4 has no mapping and must be kept under 'UNASSIGNED' (left join)",
+    "s3 has unknown visitors: East's conversion_rate is null, not 50 / 0 and not computed from a zero-filled visitor count",
+    "Regions with zero transactions must yield null avg_basket rather than a division error"
+  ],
+  "common_failure_modes": [
+    "FM3: Average of ratios used instead of ratio of sums",
+    "FM1: Non-unique mapping fans out store rows and double counts revenue",
+    "FM1: Inner join drops stores without a region mapping"
+  ]
+}

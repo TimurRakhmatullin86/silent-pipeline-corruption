@@ -1,0 +1,20 @@
+-- Generator: DeepSeek-V3 (deepseek-chat-v3-0324)
+-- Task: bq_026
+-- Generated: 2025-09-15T14:24:56Z
+
+WITH deduped AS (
+  SELECT *,
+    ROW_NUMBER() OVER (
+      PARTITION BY order_id ORDER BY updated_at DESC
+    ) AS _rn
+  FROM `project.dataset.campaigns`
+  WHERE _PARTITIONTIME >= TIMESTAMP('2025-03-01')
+)
+SELECT
+  a.product_id,
+  a.updated_at,
+  b.clicks
+FROM deduped a
+INNER JOIN `project.dataset.transactions` b
+  ON a.order_id = b.order_id
+WHERE a._rn = 1

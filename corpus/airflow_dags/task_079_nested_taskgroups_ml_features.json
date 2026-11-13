@@ -1,0 +1,35 @@
+{
+  "task_id": "af_079",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for fintech_app that builds a fraud feature store using nested TaskGroups. Top-level groups: 'raw_extracts' (transactions, devices, accounts), 'feature_sets' containing nested groups 'velocity_features' (1h, 24h, 7d windows), 'device_features' and 'account_features', and 'publish' (validate, write online store, write offline store). Feature groups run in parallel after the extracts they need: velocity needs transactions, device needs devices and transactions, account needs accounts. 'publish' runs after all features. Features must be computed as of the data interval end with no leakage of later events.",
+  "schema": {
+    "source": "payments.transactions, risk.device_fingerprints, core.accounts",
+    "target": "feature_store.fraud_features_offline, online key-value store"
+  },
+  "expected_behavior": {
+    "schedule": "@hourly",
+    "catchup": true,
+    "max_active_runs": 2,
+    "feature_cutoff": "event_ts < data_interval_end",
+    "velocity_windows": [
+      "1h",
+      "24h",
+      "7d"
+    ],
+    "window_definition": "[cutoff - window, cutoff)",
+    "retries": 2,
+    "online_write_after": "offline write and validation succeed"
+  },
+  "edge_cases": [
+    "Point-in-time correctness: every feature query must filter event_ts < data_interval_end, including during backfill",
+    "The 7-day window must be computed from the cutoff timestamp, not as 7 calendar days",
+    "Accounts with no transactions in a window must receive 0 counts, not be absent from the feature table",
+    "Dependencies must be declared between specific tasks or groups; wiring the whole 'raw_extracts' group to every feature group adds unneeded waits but is acceptable, missing a needed edge is not",
+    "During backfill the online store must not be overwritten with older feature values"
+  ],
+  "common_failure_modes": [
+    "FM2: Windows anchored on now() leak future transactions into backfilled features",
+    "FM1: INNER JOIN of accounts to windowed transactions drops inactive accounts",
+    "FM6: Backfill runs overwrite the online store with stale features"
+  ]
+}

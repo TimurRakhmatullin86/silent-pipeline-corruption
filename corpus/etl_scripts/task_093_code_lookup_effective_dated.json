@@ -1,0 +1,95 @@
+{
+  "task_id": "etl_093",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for health_portal that enriches encounter records with a diagnosis category from an effective-dated reference table. The script should: (1) normalize dx_code on both sides (trim, upper case), (2) join each encounter to the mapping version in effect on the encounter_date (effective_from <= encounter_date, choosing the latest such version), (3) set dx_category to 'UNMAPPED' when no mapping exists, (4) guarantee that the output has exactly one row per encounter. In the sample, rows are tagged with _dataset = encounters or icd_map.",
+  "schema": {
+    "source_columns": {
+      "encounters": {
+        "encounter_id": "string",
+        "dx_code": "string",
+        "encounter_date": "date"
+      },
+      "icd_map": {
+        "dx_code": "string",
+        "dx_category": "string",
+        "effective_from": "date"
+      }
+    },
+    "target_columns": {
+      "encounter_id": "string",
+      "dx_code": "string (normalized)",
+      "encounter_date": "date",
+      "dx_category": "string"
+    }
+  },
+  "test_data_sample": [
+    {
+      "_dataset": "encounters",
+      "encounter_id": "e1",
+      "dx_code": "E11.9",
+      "encounter_date": "2023-05-01"
+    },
+    {
+      "_dataset": "encounters",
+      "encounter_id": "e2",
+      "dx_code": "e11.9 ",
+      "encounter_date": "2025-02-01"
+    },
+    {
+      "_dataset": "encounters",
+      "encounter_id": "e3",
+      "dx_code": "Z99.99",
+      "encounter_date": "2025-02-01"
+    },
+    {
+      "_dataset": "icd_map",
+      "dx_code": "E11.9",
+      "dx_category": "Endocrine",
+      "effective_from": "2020-01-01"
+    },
+    {
+      "_dataset": "icd_map",
+      "dx_code": "E11.9",
+      "dx_category": "Endocrine/Metabolic",
+      "effective_from": "2024-01-01"
+    },
+    {
+      "_dataset": "icd_map",
+      "dx_code": "I10",
+      "dx_category": "Circulatory",
+      "effective_from": "2020-01-01"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "encounter_id": "e1",
+      "dx_code": "E11.9",
+      "encounter_date": "2023-05-01",
+      "dx_category": "Endocrine"
+    },
+    {
+      "encounter_id": "e2",
+      "dx_code": "E11.9",
+      "encounter_date": "2025-02-01",
+      "dx_category": "Endocrine/Metabolic"
+    },
+    {
+      "encounter_id": "e3",
+      "dx_code": "Z99.99",
+      "encounter_date": "2025-02-01",
+      "dx_category": "UNMAPPED"
+    }
+  ],
+  "edge_cases": [
+    "A plain merge on dx_code returns two rows for every E11.9 encounter because the map has two versions",
+    "e2 needs trimming and upper-casing before it matches",
+    "e3 has no mapping and must be kept (left join) with 'UNMAPPED'",
+    "An encounter dated before the earliest effective_from of its code is UNMAPPED, not matched to a later version",
+    "Output row count must equal the encounter count; assert it"
+  ],
+  "common_failure_modes": [
+    "FM1: Join on code alone fans out encounters across mapping versions",
+    "FM1: Inner join drops unmapped encounters",
+    "FM2: Picking the latest mapping version regardless of encounter_date rewrites historical categories"
+  ]
+}

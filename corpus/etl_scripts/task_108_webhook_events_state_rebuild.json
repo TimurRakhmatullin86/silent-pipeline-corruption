@@ -1,0 +1,99 @@
+{
+  "task_id": "etl_108",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for media_stream that builds the current state of subscriptions from a JSON Lines file of webhook events, which may arrive out of order and may be delivered more than once. The script should: (1) parse each line, sending malformed lines to a reject file, (2) deduplicate deliveries on event_id, (3) order events per subscription by the provider's sequence number seq, not by arrival order or received_at, (4) take plan and status from the event with the highest seq, (5) output one row per subscription with event_count equal to the number of distinct events.",
+  "schema": {
+    "source_columns": {
+      "event_id": "string",
+      "subscription_id": "string",
+      "seq": "int",
+      "plan": "string",
+      "status": "string",
+      "received_at": "string (ISO 8601)"
+    },
+    "target_columns": {
+      "subscription_id": "string",
+      "plan": "string",
+      "status": "string",
+      "last_seq": "int",
+      "event_count": "int"
+    }
+  },
+  "test_data_sample": [
+    {
+      "event_id": "ev1",
+      "subscription_id": "sub1",
+      "seq": 1,
+      "plan": "basic",
+      "status": "active",
+      "received_at": "2025-06-10T08:00:00Z"
+    },
+    {
+      "event_id": "ev3",
+      "subscription_id": "sub1",
+      "seq": 3,
+      "plan": "pro",
+      "status": "active",
+      "received_at": "2025-06-10T08:00:02Z"
+    },
+    {
+      "event_id": "ev2",
+      "subscription_id": "sub1",
+      "seq": 2,
+      "plan": "basic",
+      "status": "past_due",
+      "received_at": "2025-06-10T08:00:05Z"
+    },
+    {
+      "event_id": "ev4",
+      "subscription_id": "sub2",
+      "seq": 1,
+      "plan": "basic",
+      "status": "active",
+      "received_at": "2025-06-10T08:01:00Z"
+    },
+    {
+      "event_id": "ev5",
+      "subscription_id": "sub2",
+      "seq": 2,
+      "plan": "basic",
+      "status": "canceled",
+      "received_at": "2025-06-10T08:02:00Z"
+    },
+    {
+      "event_id": "ev3",
+      "subscription_id": "sub1",
+      "seq": 3,
+      "plan": "pro",
+      "status": "active",
+      "received_at": "2025-06-10T08:03:00Z"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "subscription_id": "sub1",
+      "plan": "pro",
+      "status": "active",
+      "last_seq": 3,
+      "event_count": 3
+    },
+    {
+      "subscription_id": "sub2",
+      "plan": "basic",
+      "status": "canceled",
+      "last_seq": 2,
+      "event_count": 2
+    }
+  ],
+  "edge_cases": [
+    "sub1's seq 2 (past_due) arrives after seq 3; taking the last received event would leave the subscription past_due on the basic plan",
+    "ev3 is delivered twice; event_count for sub1 is 3, not 4",
+    "seq must be compared numerically (seq 10 > seq 9), not as strings",
+    "A malformed JSON line must be written to rejects without aborting the whole file"
+  ],
+  "common_failure_modes": [
+    "FM2: Ordering by arrival or received_at instead of the source sequence applies stale state",
+    "FM3: Duplicate deliveries counted as separate events",
+    "FM7: One malformed line aborts the load or is skipped without trace"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "task_id": "bq_069",
+  "category": "bigquery_sql",
+  "description": "Backfill a typed table from raw purchase events whose JSON payload (stored as STRING) changed shape three times. There is no version column; detect the shape from the keys. v1: {\"price\": \"12.50\", \"qty\": 2} (price is a string, per unit). v2: {\"pricing\": {\"amount\": 8.0, \"currency\": \"USD\"}, \"quantity\": 3} (amount per unit). v3: {\"items\": [{\"amount\": 5, \"quantity\": 1}, ...]} (several lines). For each event output the detected schema_version, total_amount = sum of unit amount * quantity, total_quantity, and parse_ok. Payloads that are not valid JSON or match no known shape must be kept with schema_version = 'unknown', NULL totals and parse_ok = FALSE (the query must not fail). Output columns: event_id (INT64), schema_version (STRING), total_amount (FLOAT64), total_quantity (INT64), parse_ok (BOOL). Sort by event_id.",
+  "schema": {
+    "raw_purchase_events": {
+      "columns": {
+        "event_id": {"type": "INT64", "description": "Primary key"},
+        "source_id": {"type": "INT64", "description": "Foreign key to event_sources"},
+        "received_at": {"type": "TIMESTAMP", "description": "UTC arrival time"},
+        "payload": {"type": "STRING", "description": "JSON document as text; shape depends on producer version; may be malformed"}
+      }
+    },
+    "event_sources": {
+      "columns": {
+        "source_id": {"type": "INT64", "description": "Primary key"},
+        "source_name": {"type": "STRING", "description": "Producing application"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "raw_purchase_events", "rows": [
+      {"event_id": 1, "source_id": 1, "received_at": "2024-11-01T10:00:00Z", "payload": "{\"price\": \"12.50\", \"qty\": 2}"},
+      {"event_id": 2, "source_id": 1, "received_at": "2025-02-01T10:00:00Z", "payload": "{\"pricing\": {\"amount\": 8.0, \"currency\": \"USD\"}, \"quantity\": 3}"},
+      {"event_id": 3, "source_id": 2, "received_at": "2025-05-01T10:00:00Z", "payload": "{\"items\": [{\"amount\": 5, \"quantity\": 1}, {\"amount\": 2.5, \"quantity\": 2}]}"},
+      {"event_id": 4, "source_id": 2, "received_at": "2025-05-02T10:00:00Z", "payload": "{\"price\": 12.5"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"event_id": 1, "schema_version": "v1", "total_amount": 25.0, "total_quantity": 2, "parse_ok": true},
+    {"event_id": 2, "schema_version": "v2", "total_amount": 24.0, "total_quantity": 3, "parse_ok": true},
+    {"event_id": 3, "schema_version": "v3", "total_amount": 10.0, "total_quantity": 3, "parse_ok": true},
+    {"event_id": 4, "schema_version": "unknown", "total_amount": null, "total_quantity": null, "parse_ok": false}
+  ],
+  "edge_cases": [
+    "v1 price is a JSON string and must be cast to a number",
+    "v3 has an array of items that must be aggregated back to one row per event",
+    "Malformed JSON (event 4) must not abort the query and must stay in the output",
+    "A v3 event with an empty items array yields total_amount 0 and total_quantity 0, still one row"
+  ],
+  "common_failure_modes": [
+    "FM5: Reading only $.price returns NULL for v2/v3 events, silently zeroing revenue after the producer upgrade",
+    "FM4: PARSE_JSON raises on malformed input (SAFE.PARSE_JSON needed); JSON_EXTRACT returns quoted JSON text whereas JSON_VALUE returns the scalar; JSON_VALUE on an array returns NULL (JSON_QUERY_ARRAY needed)",
+    "FM1: UNNEST of the items array without re-aggregation multiplies events; comma-join UNNEST drops events with no items"
+  ]
+}

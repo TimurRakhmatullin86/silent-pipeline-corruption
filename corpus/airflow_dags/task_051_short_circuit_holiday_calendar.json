@@ -1,0 +1,29 @@
+{
+  "task_id": "af_051",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for fintech_app that generates the daily settlement file for the payment network. The DAG should: (1) use @task.short_circuit to stop the run when the logical date is a bank holiday according to the ref.bank_holidays table, (2) extract settled transactions, (3) generate the fixed-width settlement file, (4) upload it via SFTP, (5) always run an 'audit_log' task that records whether the run produced a file or was skipped for a holiday. The DAG runs Monday to Friday at 22:00 America/New_York.",
+  "schema": {
+    "source": "payments.settled_transactions, ref.bank_holidays",
+    "target": "sftp://network.example/inbound/settle_{{ ds_nodash }}.dat",
+    "audit_table": "ops.settlement_audit"
+  },
+  "expected_behavior": {
+    "schedule": "0 22 * * 1-5",
+    "timezone": "America/New_York",
+    "catchup": false,
+    "short_circuit_ignore_downstream_trigger_rules": false,
+    "audit_trigger_rule": "all_done",
+    "retries": 2
+  },
+  "edge_cases": [
+    "ShortCircuit must be configured with ignore_downstream_trigger_rules=False, otherwise the audit task is force-skipped despite trigger_rule='all_done'",
+    "Holiday lookup must use the business date in New York time, not the UTC date",
+    "Audit record must distinguish 'skipped_holiday' from 'failed' and 'success'",
+    "A day with zero settled transactions is not a holiday: an empty file with header and trailer must still be sent"
+  ],
+  "common_failure_modes": [
+    "FM6: Default ignore_downstream_trigger_rules=True skips the audit task on holidays",
+    "FM2: Using the UTC date for a 22:00 New York schedule checks the holiday calendar for the next day",
+    "FM7: Empty extract treated as a skip, so the network receives no file on a valid business day"
+  ]
+}

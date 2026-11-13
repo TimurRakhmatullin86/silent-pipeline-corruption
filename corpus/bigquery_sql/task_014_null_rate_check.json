@@ -1,0 +1,48 @@
+{
+  "task_id": "bq_014",
+  "category": "bigquery_sql",
+  "description": "Build a data quality report of NULL rates per load date for the columns configured in dq_null_thresholds. For each load_date and each configured column of patient_visits (patient_id, diagnosis_code), compute null_pct = 100 * (rows where the column is NULL or, for STRING columns, an empty/whitespace-only string) / total rows of that load_date. Compare with max_null_pct and set is_breach = null_pct > max_null_pct. Output columns: load_date (DATE), column_name (STRING), row_count (INT64), null_pct (FLOAT64, 1 decimal), max_null_pct (FLOAT64), is_breach (BOOL).",
+  "schema": {
+    "patient_visits": {
+      "columns": {
+        "visit_id": {"type": "INT64", "description": "Primary key"},
+        "patient_id": {"type": "INT64", "description": "Patient identifier; should never be NULL"},
+        "diagnosis_code": {"type": "STRING", "description": "ICD-style code; upstream sometimes sends '' instead of NULL"},
+        "discharge_ts": {"type": "TIMESTAMP", "description": "Discharge time; NULL while admitted"},
+        "load_date": {"type": "DATE", "description": "Ingestion date partition"}
+      }
+    },
+    "dq_null_thresholds": {
+      "columns": {
+        "column_name": {"type": "STRING", "description": "Column of patient_visits being monitored"},
+        "max_null_pct": {"type": "FLOAT64", "description": "Maximum tolerated NULL percentage (0-100)"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "patient_visits", "rows": [
+      {"visit_id": 1, "patient_id": 501, "diagnosis_code": "J10", "discharge_ts": "2025-04-01T10:00:00Z", "load_date": "2025-04-01"},
+      {"visit_id": 2, "patient_id": 502, "diagnosis_code": "", "discharge_ts": null, "load_date": "2025-04-01"},
+      {"visit_id": 3, "patient_id": null, "diagnosis_code": null, "discharge_ts": null, "load_date": "2025-04-01"},
+      {"visit_id": 4, "patient_id": 504, "diagnosis_code": "A09", "discharge_ts": "2025-04-01T18:00:00Z", "load_date": "2025-04-01"}
+    ]},
+    {"table": "dq_null_thresholds", "rows": [
+      {"column_name": "patient_id", "max_null_pct": 0.0},
+      {"column_name": "diagnosis_code", "max_null_pct": 30.0}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"load_date": "2025-04-01", "column_name": "diagnosis_code", "row_count": 4, "null_pct": 50.0, "max_null_pct": 30.0, "is_breach": true},
+    {"load_date": "2025-04-01", "column_name": "patient_id", "row_count": 4, "null_pct": 25.0, "max_null_pct": 0.0, "is_breach": true}
+  ],
+  "edge_cases": [
+    "Empty string and whitespace-only diagnosis_code count as NULL",
+    "A load_date with zero NULLs must still produce a row with null_pct = 0.0",
+    "Threshold comparison is strict (null_pct equal to the threshold is not a breach)"
+  ],
+  "common_failure_modes": [
+    "FM5: COUNT(diagnosis_code) treats empty strings as populated, under-reporting the NULL rate",
+    "FM3: Integer division or dividing by COUNT(column) instead of COUNT(*) distorts the percentage",
+    "FM7: Report omits load dates/columns with no NULLs, so missing rows are indistinguishable from missing checks"
+  ]
+}

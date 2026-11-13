@@ -1,0 +1,51 @@
+{
+  "task_id": "bq_021",
+  "category": "bigquery_sql",
+  "description": "For each department in the HR system, return all active employees who earn the second-highest DISTINCT salary of that department. Departments with fewer than two distinct salary values among active employees are omitted. Active means termination_date IS NULL. Output columns: department_name (STRING), employee_id (INT64), salary (NUMERIC). Sort by department_name, employee_id.",
+  "schema": {
+    "employees": {
+      "columns": {
+        "employee_id": {"type": "INT64", "description": "Primary key"},
+        "department_id": {"type": "INT64", "description": "Foreign key to departments"},
+        "salary": {"type": "NUMERIC", "description": "Annual salary; NULL for unpaid interns"},
+        "termination_date": {"type": "DATE", "description": "NULL while employed"}
+      }
+    },
+    "departments": {
+      "columns": {
+        "department_id": {"type": "INT64", "description": "Primary key"},
+        "department_name": {"type": "STRING", "description": "Department name"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "employees", "rows": [
+      {"employee_id": 1, "department_id": 1, "salary": 100000, "termination_date": null},
+      {"employee_id": 2, "department_id": 1, "salary": 100000, "termination_date": null},
+      {"employee_id": 3, "department_id": 1, "salary": 90000, "termination_date": null},
+      {"employee_id": 4, "department_id": 1, "salary": 90000, "termination_date": null},
+      {"employee_id": 5, "department_id": 1, "salary": 80000, "termination_date": null},
+      {"employee_id": 6, "department_id": 2, "salary": 70000, "termination_date": null},
+      {"employee_id": 7, "department_id": 2, "salary": 70000, "termination_date": null},
+      {"employee_id": 8, "department_id": 2, "salary": null, "termination_date": null}
+    ]},
+    {"table": "departments", "rows": [
+      {"department_id": 1, "department_name": "Engineering"},
+      {"department_id": 2, "department_name": "Support"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"department_name": "Engineering", "employee_id": 3, "salary": 90000},
+    {"department_name": "Engineering", "employee_id": 4, "salary": 90000}
+  ],
+  "edge_cases": [
+    "Two employees share the top salary; the second-highest distinct salary is still 90000",
+    "Department with a single distinct salary is omitted",
+    "NULL salaries must not be ranked as a salary level",
+    "Terminated employees are ignored when determining salary levels"
+  ],
+  "common_failure_modes": [
+    "FM4: RANK() or ROW_NUMBER() = 2 returns nothing or the wrong employee when the top salary is tied; DENSE_RANK() is required",
+    "FM5: NULL salary sorts last in DESC order in BigQuery but can still be assigned rank 2 in a department with one real salary level"
+  ]
+}

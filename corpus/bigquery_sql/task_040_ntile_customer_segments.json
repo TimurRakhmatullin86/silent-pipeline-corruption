@@ -1,0 +1,58 @@
+{
+  "task_id": "bq_040",
+  "category": "bigquery_sql",
+  "description": "Segment all customers of the online store into spend quartiles for calendar year 2025 and summarize each quartile. Spend = sum of completed order amounts with order_ts in 2025 (UTC); customers with no such orders have spend 0 and must be included. Assign quartiles with NTILE(4) over spend ascending, breaking ties by customer_id ascending (quartile 1 = lowest spend). Output columns: spend_quartile (INT64), customers (INT64), min_spend (FLOAT64), max_spend (FLOAT64), total_spend (FLOAT64). Sort by spend_quartile.",
+  "schema": {
+    "customers": {
+      "columns": {
+        "customer_id": {"type": "INT64", "description": "Primary key"},
+        "segment": {"type": "STRING", "description": "Marketing segment"}
+      }
+    },
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "customer_id": {"type": "INT64", "description": "Foreign key to customers"},
+        "order_ts": {"type": "TIMESTAMP", "description": "UTC order timestamp"},
+        "status": {"type": "STRING", "description": "completed, cancelled"},
+        "amount": {"type": "FLOAT64", "description": "Order amount"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "customers", "rows": [
+      {"customer_id": 1, "segment": "retail"},
+      {"customer_id": 2, "segment": "retail"},
+      {"customer_id": 3, "segment": "retail"},
+      {"customer_id": 4, "segment": "wholesale"},
+      {"customer_id": 5, "segment": "wholesale"},
+      {"customer_id": 6, "segment": "wholesale"}
+    ]},
+    {"table": "orders", "rows": [
+      {"order_id": 1, "customer_id": 2, "order_ts": "2025-02-01T10:00:00Z", "status": "completed", "amount": 10.0},
+      {"order_id": 2, "customer_id": 3, "order_ts": "2025-03-01T10:00:00Z", "status": "completed", "amount": 20.0},
+      {"order_id": 3, "customer_id": 4, "order_ts": "2025-04-01T10:00:00Z", "status": "completed", "amount": 30.0},
+      {"order_id": 4, "customer_id": 5, "order_ts": "2025-05-01T10:00:00Z", "status": "completed", "amount": 40.0},
+      {"order_id": 5, "customer_id": 6, "order_ts": "2025-06-01T10:00:00Z", "status": "completed", "amount": 300.0},
+      {"order_id": 6, "customer_id": 6, "order_ts": "2025-07-01T10:00:00Z", "status": "completed", "amount": 200.0},
+      {"order_id": 7, "customer_id": 1, "order_ts": "2024-12-31T23:59:59Z", "status": "completed", "amount": 999.0}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"spend_quartile": 1, "customers": 2, "min_spend": 0.0, "max_spend": 10.0, "total_spend": 10.0},
+    {"spend_quartile": 2, "customers": 2, "min_spend": 20.0, "max_spend": 30.0, "total_spend": 50.0},
+    {"spend_quartile": 3, "customers": 1, "min_spend": 40.0, "max_spend": 40.0, "total_spend": 40.0},
+    {"spend_quartile": 4, "customers": 1, "min_spend": 500.0, "max_spend": 500.0, "total_spend": 500.0}
+  ],
+  "edge_cases": [
+    "Customer 1 only ordered in 2024 and has spend 0 in 2025 but must be bucketed",
+    "6 customers into 4 buckets: NTILE gives bucket sizes 2, 2, 1, 1",
+    "Customers with equal spend need the customer_id tie-break to be deterministic",
+    "Customer 6 has two orders that must be summed before bucketing"
+  ],
+  "common_failure_modes": [
+    "FM1: INNER JOIN to orders drops zero-spend customers, shifting every quartile boundary",
+    "FM3: Applying NTILE to order rows instead of per-customer totals",
+    "FM7: Missing tie-breaker makes quartile assignment non-deterministic across runs"
+  ]
+}

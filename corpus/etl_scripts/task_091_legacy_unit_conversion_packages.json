@@ -1,0 +1,83 @@
+{
+  "task_id": "etl_091",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for logistics_co that maps a legacy package table to the new warehouse schema. The script should: (1) convert weight to kilograms from the unit given in wt_unit (lb x 0.45359237, oz x 0.028349523, kg unchanged; units are case-insensitive), rounded to 3 decimals, (2) parse dims ('LxWxH' in inches, separator may be upper or lower case x) and compute volume_cm3 = L*W*H*16.387064 rounded to 2 decimals, (3) map svc_cd to service_level (1 = ground, 2 = express, 3 = overnight, anything else = unknown), (4) parse ship_dt in MM/DD/YYYY into an ISO date.",
+  "schema": {
+    "source_columns": {
+      "pkg_id": "string",
+      "wt": "float",
+      "wt_unit": "string (lb, kg, oz)",
+      "dims": "string 'LxWxH' inches (nullable)",
+      "svc_cd": "string or int",
+      "ship_dt": "string MM/DD/YYYY"
+    },
+    "target_columns": {
+      "package_id": "string",
+      "weight_kg": "float64",
+      "volume_cm3": "float64 (nullable)",
+      "service_level": "string",
+      "ship_date": "date"
+    }
+  },
+  "test_data_sample": [
+    {
+      "pkg_id": "P1",
+      "wt": 10,
+      "wt_unit": "lb",
+      "dims": "12x8x4",
+      "svc_cd": 1,
+      "ship_dt": "03/04/2025"
+    },
+    {
+      "pkg_id": "P2",
+      "wt": 2.5,
+      "wt_unit": "KG",
+      "dims": "30X20X10",
+      "svc_cd": "2",
+      "ship_dt": "12/01/2025"
+    },
+    {
+      "pkg_id": "P3",
+      "wt": 32,
+      "wt_unit": "oz",
+      "dims": null,
+      "svc_cd": 9,
+      "ship_dt": "01/13/2025"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "package_id": "P1",
+      "weight_kg": 4.536,
+      "volume_cm3": 6292.63,
+      "service_level": "ground",
+      "ship_date": "2025-03-04"
+    },
+    {
+      "package_id": "P2",
+      "weight_kg": 2.5,
+      "volume_cm3": 98322.38,
+      "service_level": "express",
+      "ship_date": "2025-12-01"
+    },
+    {
+      "package_id": "P3",
+      "weight_kg": 0.907,
+      "volume_cm3": null,
+      "service_level": "unknown",
+      "ship_date": "2025-01-13"
+    }
+  ],
+  "edge_cases": [
+    "ship_dt is month-first: 03/04/2025 is 4 March, not 3 April; an explicit format string is required",
+    "svc_cd arrives as both int and string; the mapping must normalize the type before lookup",
+    "wt_unit and the dims separator vary in case",
+    "Null dims yields null volume rather than 0",
+    "An unrecognized wt_unit must raise or be rejected, not be assumed to be kg"
+  ],
+  "common_failure_modes": [
+    "FM4: Date parser infers day-first for ambiguous dates and swaps month and day",
+    "FM5: Mixed-type svc_cd fails the dictionary lookup and maps valid codes to unknown",
+    "FM7: Unknown units silently treated as kilograms"
+  ]
+}

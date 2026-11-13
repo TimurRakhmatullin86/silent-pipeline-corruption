@@ -1,0 +1,49 @@
+{
+  "task_id": "bq_030",
+  "category": "bigquery_sql",
+  "description": "Extract the current version of each customer from a Type-2 slowly changing dimension. The is_current flag is unreliable and must not be trusted. A row is open-ended if valid_to IS NULL or valid_to = DATE '9999-12-31' (two conventions coexist). The current version of a customer is the open-ended row with the latest valid_from. Customers with no open-ended row (closed accounts) are excluded. Output columns: customer_id (INT64), address (STRING), tier (STRING), valid_from (DATE).",
+  "schema": {
+    "dim_customer_history": {
+      "columns": {
+        "customer_id": {"type": "INT64", "description": "Business key"},
+        "address": {"type": "STRING", "description": "Postal address for this version"},
+        "tier": {"type": "STRING", "description": "Loyalty tier for this version"},
+        "valid_from": {"type": "DATE", "description": "Version start (inclusive)"},
+        "valid_to": {"type": "DATE", "description": "Version end (exclusive); NULL or 9999-12-31 when open-ended"},
+        "is_current": {"type": "BOOL", "description": "Legacy flag; known to be stale for some rows"}
+      }
+    },
+    "customers": {
+      "columns": {
+        "customer_id": {"type": "INT64", "description": "Primary key"},
+        "created_at": {"type": "TIMESTAMP", "description": "Account creation time"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "dim_customer_history", "rows": [
+      {"customer_id": 1, "address": "1 Old St", "tier": "basic", "valid_from": "2024-01-01", "valid_to": "2025-01-01", "is_current": false},
+      {"customer_id": 1, "address": "2 New St", "tier": "gold", "valid_from": "2025-01-01", "valid_to": null, "is_current": true},
+      {"customer_id": 2, "address": "5 Lake Rd", "tier": "silver", "valid_from": "2024-05-01", "valid_to": "9999-12-31", "is_current": true},
+      {"customer_id": 3, "address": "9 Hill Ave", "tier": "basic", "valid_from": "2024-01-01", "valid_to": "2024-06-01", "is_current": false},
+      {"customer_id": 4, "address": "7 Elm St", "tier": "basic", "valid_from": "2024-01-01", "valid_to": "2024-03-01", "is_current": true},
+      {"customer_id": 4, "address": "8 Oak St", "tier": "gold", "valid_from": "2024-03-01", "valid_to": null, "is_current": true}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"customer_id": 1, "address": "2 New St", "tier": "gold", "valid_from": "2025-01-01"},
+    {"customer_id": 2, "address": "5 Lake Rd", "tier": "silver", "valid_from": "2024-05-01"},
+    {"customer_id": 4, "address": "8 Oak St", "tier": "gold", "valid_from": "2024-03-01"}
+  ],
+  "edge_cases": [
+    "Customer 4 has two rows flagged is_current = TRUE; only the open-ended one is current",
+    "Both NULL and 9999-12-31 mean open-ended",
+    "Customer 3 has only closed versions and must not appear",
+    "Exactly one row per customer in the output"
+  ],
+  "common_failure_modes": [
+    "FM7: WHERE is_current = TRUE returns two rows for customer 4 without any uniqueness check",
+    "FM5: WHERE valid_to IS NULL misses customers using the 9999-12-31 sentinel",
+    "FM3: Taking MAX(valid_from) per customer without checking open-endedness resurrects closed customers"
+  ]
+}

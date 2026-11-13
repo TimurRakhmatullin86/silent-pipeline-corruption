@@ -1,0 +1,67 @@
+{
+  "task_id": "etl_112",
+  "category": "etl_script",
+  "description": "Write a Python ETL script (lxml or xml.etree + pandas) for retail_chain that converts namespaced purchase-order XML documents into a line-level Parquet table. The script should: (1) parse with namespace-aware lookups, (2) emit one row per line element with a 1-based line_no, carrying order id, currency and order date from the parent, (3) read sku and qty from attributes and price and the optional note from child elements, (4) emit a single row with null line fields for orders that have no line elements so that order counts are preserved, (5) cast qty to nullable Int64 and price to decimal(10,2).",
+  "schema": {
+    "source_columns": {
+      "xml_document": "string (namespace urn:example:po; order[@id, @currency] > date, line[@sku, @qty] > price, note?)"
+    },
+    "target_columns": {
+      "order_id": "string",
+      "currency": "string",
+      "order_date": "date",
+      "line_no": "Int64 (nullable)",
+      "sku": "string (nullable)",
+      "qty": "Int64 (nullable)",
+      "price": "decimal(10,2) (nullable)",
+      "note": "string (nullable)"
+    }
+  },
+  "test_data_sample": [
+    "<po:orders xmlns:po=\"urn:example:po\"><po:order id=\"PO-1\" currency=\"EUR\"><po:date>2025-02-28</po:date><po:line sku=\"A1\" qty=\"2\"><po:price>10.00</po:price></po:line><po:line sku=\"B2\" qty=\"1\"><po:price>5.50</po:price><po:note>fragile &amp; heavy</po:note></po:line></po:order><po:order id=\"PO-2\" currency=\"USD\"><po:date>2025-03-01</po:date></po:order></po:orders>"
+  ],
+  "expected_output_sample": [
+    {
+      "order_id": "PO-1",
+      "currency": "EUR",
+      "order_date": "2025-02-28",
+      "line_no": 1,
+      "sku": "A1",
+      "qty": 2,
+      "price": "10.00",
+      "note": null
+    },
+    {
+      "order_id": "PO-1",
+      "currency": "EUR",
+      "order_date": "2025-02-28",
+      "line_no": 2,
+      "sku": "B2",
+      "qty": 1,
+      "price": "5.50",
+      "note": "fragile & heavy"
+    },
+    {
+      "order_id": "PO-2",
+      "currency": "USD",
+      "order_date": "2025-03-01",
+      "line_no": null,
+      "sku": null,
+      "qty": null,
+      "price": null,
+      "note": null
+    }
+  ],
+  "edge_cases": [
+    "Element lookups without the namespace (find('order')) return nothing and yield an empty output with no error",
+    "PO-2 has no lines and must still produce one row",
+    "The entity &amp; must be decoded to '&' in the note",
+    "Attribute values are strings; qty must be cast to an integer type that tolerates nulls",
+    "A missing optional note element yields null, not the string 'None'"
+  ],
+  "common_failure_modes": [
+    "FM5: Namespace-unaware parsing silently produces zero rows",
+    "FM1: Orders without child lines dropped during flattening",
+    "FM7: No check that the number of distinct orders in the output equals the number of order elements"
+  ]
+}

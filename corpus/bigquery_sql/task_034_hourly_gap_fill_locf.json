@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_034",
+  "category": "bigquery_sql",
+  "description": "Produce a gap-free hourly temperature series per IoT device between each device's first and last reading. For hours without a reading, carry the last observed value forward (LOCF), but only for at most 3 consecutive missing hours; beyond that the value is NULL until the next real reading. If a device has several readings in the same hour, use the latest one. Output columns: device_id (STRING), hour_ts (TIMESTAMP, truncated to the hour, UTC), temperature (FLOAT64), fill_status (STRING: 'observed', 'filled', or 'missing'). Sort by device_id, hour_ts.",
+  "schema": {
+    "temperature_readings": {
+      "columns": {
+        "device_id": {"type": "STRING", "description": "Foreign key to devices"},
+        "reading_ts": {"type": "TIMESTAMP", "description": "UTC reading time (not aligned to the hour)"},
+        "temperature": {"type": "FLOAT64", "description": "Degrees Celsius"}
+      }
+    },
+    "devices": {
+      "columns": {
+        "device_id": {"type": "STRING", "description": "Primary key"},
+        "location": {"type": "STRING", "description": "Room or zone"},
+        "is_decommissioned": {"type": "BOOL", "description": "Decommissioned devices are excluded"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "temperature_readings", "rows": [
+      {"device_id": "t1", "reading_ts": "2025-04-01T00:10:00Z", "temperature": 19.5},
+      {"device_id": "t1", "reading_ts": "2025-04-01T00:50:00Z", "temperature": 20.0},
+      {"device_id": "t1", "reading_ts": "2025-04-01T02:05:00Z", "temperature": 21.0},
+      {"device_id": "t1", "reading_ts": "2025-04-01T07:30:00Z", "temperature": 22.0}
+    ]},
+    {"table": "devices", "rows": [
+      {"device_id": "t1", "location": "cold_room", "is_decommissioned": false}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"device_id": "t1", "hour_ts": "2025-04-01T00:00:00Z", "temperature": 20.0, "fill_status": "observed"},
+    {"device_id": "t1", "hour_ts": "2025-04-01T01:00:00Z", "temperature": 20.0, "fill_status": "filled"},
+    {"device_id": "t1", "hour_ts": "2025-04-01T05:00:00Z", "temperature": 21.0, "fill_status": "filled"},
+    {"device_id": "t1", "hour_ts": "2025-04-01T06:00:00Z", "temperature": null, "fill_status": "missing"},
+    {"device_id": "t1", "hour_ts": "2025-04-01T07:00:00Z", "temperature": 22.0, "fill_status": "observed"}
+  ],
+  "edge_cases": [
+    "Two readings in hour 00 resolve to the later one (20.0)",
+    "Hours 03, 04, 05 are filled (3 hours); hour 06 exceeds the carry limit and is NULL",
+    "No rows are generated before the first or after the last reading of a device",
+    "Each device has its own hour spine; devices must not fill from each other"
+  ],
+  "common_failure_modes": [
+    "FM4: LAST_VALUE(temperature IGNORE NULLS) without an explicit ROWS frame, or LAG without IGNORE NULLS, fills only one hour",
+    "FM2: Unlimited forward fill ignores the 3-hour cap and hides sensor outages",
+    "FM3: Generating one global hour spine cross-joined to devices emits rows outside a device's own range"
+  ]
+}

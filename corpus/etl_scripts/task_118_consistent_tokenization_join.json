@@ -1,0 +1,101 @@
+{
+  "task_id": "etl_118",
+  "category": "etl_script",
+  "description": "Write a PySpark ETL script for health_portal that tokenizes the national identifier in two tables (patients and claims) so that the tables remain joinable after tokenization. The script should: (1) normalize national_id to digits only, (2) compute patient_token as the first 16 hex characters of HMAC-SHA256(key, normalized id), with the key loaded from a secret scope (the sample uses the key 'corpus_test_key'), (3) apply the identical function to both tables, (4) drop national_id from both outputs, (5) verify that the number of claims matching a patient is the same before and after tokenization and that no two distinct identifiers share a token. All identifiers in the sample are synthetic. Rows are tagged with _dataset = patients or claims.",
+  "schema": {
+    "source_columns": {
+      "patients": {
+        "patient_name": "string",
+        "national_id": "string"
+      },
+      "claims": {
+        "claim_id": "string",
+        "national_id": "string",
+        "claim_amount": "double"
+      }
+    },
+    "target_columns": {
+      "patients": {
+        "patient_token": "string (16 hex)",
+        "patient_name": "string"
+      },
+      "claims": {
+        "claim_id": "string",
+        "patient_token": "string (16 hex)",
+        "claim_amount": "double"
+      }
+    }
+  },
+  "test_data_sample": [
+    {
+      "_dataset": "patients",
+      "patient_name": "Test Patient A",
+      "national_id": "900-00-0001"
+    },
+    {
+      "_dataset": "patients",
+      "patient_name": "Test Patient B",
+      "national_id": "900-00-0002"
+    },
+    {
+      "_dataset": "claims",
+      "claim_id": "cl1",
+      "national_id": "900000001",
+      "claim_amount": 120.0
+    },
+    {
+      "_dataset": "claims",
+      "claim_id": "cl2",
+      "national_id": " 900-00-0002",
+      "claim_amount": 80.0
+    },
+    {
+      "_dataset": "claims",
+      "claim_id": "cl3",
+      "national_id": "900 00 0001",
+      "claim_amount": 45.5
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "_dataset": "patients",
+      "patient_token": "a180f3e71811a384",
+      "patient_name": "Test Patient A"
+    },
+    {
+      "_dataset": "patients",
+      "patient_token": "1366e95868869ea5",
+      "patient_name": "Test Patient B"
+    },
+    {
+      "_dataset": "claims",
+      "claim_id": "cl1",
+      "patient_token": "a180f3e71811a384",
+      "claim_amount": 120.0
+    },
+    {
+      "_dataset": "claims",
+      "claim_id": "cl2",
+      "patient_token": "1366e95868869ea5",
+      "claim_amount": 80.0
+    },
+    {
+      "_dataset": "claims",
+      "claim_id": "cl3",
+      "patient_token": "a180f3e71811a384",
+      "claim_amount": 45.5
+    }
+  ],
+  "edge_cases": [
+    "The same identifier is formatted differently in the two tables (dashes, spaces, leading whitespace); without normalization the tokens differ and all three claims become orphans",
+    "A random token or per-run salt (uuid, monotonically_increasing_id) is not reproducible across tables or runs",
+    "An unkeyed hash of a 9-digit identifier can be reversed by enumerating all values; a keyed HMAC is required",
+    "Join cardinality must be asserted before and after: 3 matched claims in both cases",
+    "Truncating to 16 hex characters requires a collision check"
+  ],
+  "common_failure_modes": [
+    "FM1: Inconsistent normalization between tables silently breaks the post-tokenization join",
+    "FM7: No before/after join reconciliation, so the lost matches go unnoticed",
+    "FM7: national_id column retained in one of the outputs"
+  ]
+}

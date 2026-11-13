@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_019",
+  "category": "bigquery_sql",
+  "description": "Using the HR system, list active employees (termination_date IS NULL) who earn strictly more than their direct manager. Employees without a manager (manager_id IS NULL) are never returned. The manager's own employment status does not matter. Output columns: employee_id (INT64), employee_name (STRING), department_name (STRING), salary (NUMERIC), manager_name (STRING), manager_salary (NUMERIC). Sort by employee_id.",
+  "schema": {
+    "employees": {
+      "columns": {
+        "employee_id": {"type": "INT64", "description": "Primary key"},
+        "full_name": {"type": "STRING", "description": "Employee name"},
+        "manager_id": {"type": "INT64", "description": "Self-reference to employees.employee_id; NULL for top-level"},
+        "department_id": {"type": "INT64", "description": "Foreign key to departments; may be NULL for contractors"},
+        "salary": {"type": "NUMERIC", "description": "Annual base salary"},
+        "termination_date": {"type": "DATE", "description": "NULL while employed"}
+      }
+    },
+    "departments": {
+      "columns": {
+        "department_id": {"type": "INT64", "description": "Primary key"},
+        "department_name": {"type": "STRING", "description": "Department name"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "employees", "rows": [
+      {"employee_id": 1, "full_name": "Ana", "manager_id": null, "department_id": 10, "salary": 150000, "termination_date": null},
+      {"employee_id": 2, "full_name": "Ben", "manager_id": 1, "department_id": 10, "salary": 160000, "termination_date": null},
+      {"employee_id": 3, "full_name": "Cy", "manager_id": 1, "department_id": 10, "salary": 90000, "termination_date": null},
+      {"employee_id": 4, "full_name": "Di", "manager_id": 2, "department_id": 20, "salary": 170000, "termination_date": "2025-02-01"},
+      {"employee_id": 5, "full_name": "Eli", "manager_id": 2, "department_id": null, "salary": 165000, "termination_date": null}
+    ]},
+    {"table": "departments", "rows": [
+      {"department_id": 10, "department_name": "Engineering"},
+      {"department_id": 20, "department_name": "Sales"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"employee_id": 2, "employee_name": "Ben", "department_name": "Engineering", "salary": 160000, "manager_name": "Ana", "manager_salary": 150000},
+    {"employee_id": 5, "employee_name": "Eli", "department_name": null, "salary": 165000, "manager_name": "Ben", "manager_salary": 160000}
+  ],
+  "edge_cases": [
+    "Top-level employee with NULL manager_id is excluded",
+    "Terminated employee earning more than the manager is excluded",
+    "Employee with NULL department_id must still be returned with department_name NULL",
+    "Equal salary is not 'more than'"
+  ],
+  "common_failure_modes": [
+    "FM1: Joining on e.employee_id = m.manager_id (reversed direction) lists managers instead of reports",
+    "FM1: INNER JOIN to departments drops employees with NULL department_id"
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "task_id": "bq_059",
+  "category": "bigquery_sql",
+  "description": "Compute a holiday-aware week-over-week comparison of daily orders per store. For each non-holiday date D, the baseline is the same weekday one week earlier (D - 7); if D - 7 is a holiday in the store's country or has no data, fall back to D - 14; if that is also a holiday or missing, the baseline is NULL. wow_pct = 100 * (orders - baseline_orders) / baseline_orders. Holiday dates themselves are not reported. Output columns: store_id (INT64), metric_date (DATE), orders (INT64), baseline_date (DATE), baseline_orders (INT64), wow_pct (FLOAT64, 1 decimal). Report dates from 2025-06-23 onward, sorted by store_id, metric_date.",
+  "schema": {
+    "daily_store_orders": {
+      "columns": {
+        "store_id": {"type": "INT64", "description": "Foreign key to stores"},
+        "metric_date": {"type": "DATE", "description": "Business date; closed days have no row"},
+        "orders": {"type": "INT64", "description": "Number of orders"}
+      }
+    },
+    "stores": {
+      "columns": {
+        "store_id": {"type": "INT64", "description": "Primary key"},
+        "country": {"type": "STRING", "description": "Country code used for the holiday calendar"}
+      }
+    },
+    "holidays": {
+      "columns": {
+        "holiday_date": {"type": "DATE", "description": "Public holiday date"},
+        "country": {"type": "STRING", "description": "Country code"},
+        "holiday_name": {"type": "STRING", "description": "Name of the holiday"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "daily_store_orders", "rows": [
+      {"store_id": 1, "metric_date": "2025-06-10", "orders": 75},
+      {"store_id": 1, "metric_date": "2025-06-16", "orders": 100},
+      {"store_id": 1, "metric_date": "2025-06-17", "orders": 20},
+      {"store_id": 1, "metric_date": "2025-06-23", "orders": 120},
+      {"store_id": 1, "metric_date": "2025-06-24", "orders": 90}
+    ]},
+    {"table": "stores", "rows": [
+      {"store_id": 1, "country": "SE"}
+    ]},
+    {"table": "holidays", "rows": [
+      {"holiday_date": "2025-06-17", "country": "SE", "holiday_name": "Synthetic Founders Day"},
+      {"holiday_date": "2025-06-24", "country": "NO", "holiday_name": "Other Country Holiday"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"store_id": 1, "metric_date": "2025-06-23", "orders": 120, "baseline_date": "2025-06-16", "baseline_orders": 100, "wow_pct": 20.0},
+    {"store_id": 1, "metric_date": "2025-06-24", "orders": 90, "baseline_date": "2025-06-10", "baseline_orders": 75, "wow_pct": 20.0}
+  ],
+  "edge_cases": [
+    "2025-06-17 is a holiday in the store's country, so 2025-06-24 falls back to 2025-06-10",
+    "A holiday in a different country (NO on 2025-06-24) must not affect a Swedish store",
+    "Baseline missing in both prior weeks yields NULL baseline and NULL wow_pct",
+    "Baseline of 0 orders must not raise a division error"
+  ],
+  "common_failure_modes": [
+    "FM2: LAG(orders, 7) counts rows, not calendar days, so with closed days it compares different weekdays",
+    "FM1: Joining holidays on date without country marks days as holidays for every store (and can duplicate rows when several countries share a date)",
+    "FM3: Comparing against the depressed holiday value (20) reports +350% growth"
+  ]
+}

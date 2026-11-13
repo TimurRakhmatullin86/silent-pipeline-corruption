@@ -1,0 +1,52 @@
+{
+  "task_id": "bq_022",
+  "category": "bigquery_sql",
+  "description": "Remove duplicate IoT sensor readings caused by batch replays. Two rows are duplicates when they share (device_id, reading_ts, metric). Keep exactly one row per key: the row from the highest batch_id whose value is not NULL; if all values for the key are NULL keep the row from the highest batch_id. Only readings from devices present in the devices table are kept. Output columns: device_id (STRING), reading_ts (TIMESTAMP), metric (STRING), value (FLOAT64), batch_id (INT64).",
+  "schema": {
+    "sensor_readings": {
+      "columns": {
+        "device_id": {"type": "STRING", "description": "Foreign key to devices"},
+        "reading_ts": {"type": "TIMESTAMP", "description": "UTC time of measurement"},
+        "metric": {"type": "STRING", "description": "temperature, humidity, pressure"},
+        "value": {"type": "FLOAT64", "description": "Measured value; NULL when the sensor failed"},
+        "batch_id": {"type": "INT64", "description": "Ingestion batch; higher is newer"}
+      }
+    },
+    "devices": {
+      "columns": {
+        "device_id": {"type": "STRING", "description": "Primary key"},
+        "site": {"type": "STRING", "description": "Installation site"},
+        "installed_at": {"type": "TIMESTAMP", "description": "Installation timestamp"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "sensor_readings", "rows": [
+      {"device_id": "d1", "reading_ts": "2025-04-01T00:00:00Z", "metric": "temperature", "value": 20.1, "batch_id": 1},
+      {"device_id": "d1", "reading_ts": "2025-04-01T00:00:00Z", "metric": "temperature", "value": 20.1, "batch_id": 2},
+      {"device_id": "d1", "reading_ts": "2025-04-01T00:00:00Z", "metric": "humidity", "value": 40.0, "batch_id": 1},
+      {"device_id": "d1", "reading_ts": "2025-04-01T00:05:00Z", "metric": "temperature", "value": 20.5, "batch_id": 1},
+      {"device_id": "d1", "reading_ts": "2025-04-01T00:05:00Z", "metric": "temperature", "value": null, "batch_id": 2},
+      {"device_id": "d9", "reading_ts": "2025-04-01T00:00:00Z", "metric": "temperature", "value": 18.0, "batch_id": 1}
+    ]},
+    {"table": "devices", "rows": [
+      {"device_id": "d1", "site": "plant_a", "installed_at": "2024-01-01T00:00:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"device_id": "d1", "reading_ts": "2025-04-01T00:00:00Z", "metric": "humidity", "value": 40.0, "batch_id": 1},
+    {"device_id": "d1", "reading_ts": "2025-04-01T00:00:00Z", "metric": "temperature", "value": 20.1, "batch_id": 2},
+    {"device_id": "d1", "reading_ts": "2025-04-01T00:05:00Z", "metric": "temperature", "value": 20.5, "batch_id": 1}
+  ],
+  "edge_cases": [
+    "Same timestamp but different metric is not a duplicate",
+    "A newer batch with a NULL value must not overwrite an older non-NULL value",
+    "Readings from unregistered devices (d9) are dropped",
+    "Key where every replay has NULL value keeps a single NULL row"
+  ],
+  "common_failure_modes": [
+    "FM3: SELECT DISTINCT * keeps both rows because batch_id differs",
+    "FM5: ORDER BY batch_id DESC alone lets a newer NULL value replace a valid older reading",
+    "FM3: Omitting metric from PARTITION BY collapses temperature and humidity into one row"
+  ]
+}

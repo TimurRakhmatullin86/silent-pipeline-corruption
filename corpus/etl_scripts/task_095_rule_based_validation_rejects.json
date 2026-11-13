@@ -1,0 +1,118 @@
+{
+  "task_id": "etl_095",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for health_portal that validates appointment records against a set of rules and splits them into a valid output and a rejects output with reasons. Rules: (R1) appointment_id is not null and unique within the file (the first occurrence is valid, later ones are rejected), (R2) patient_id matches ^P\\d{6}$, (R3) scheduled_at parses as an ISO 8601 timestamp, (R4) duration_min is an integer between 5 and 480 inclusive, (R5) status is one of booked, completed, cancelled, no_show (case-insensitive, stored lower case). A record failing several rules must list all failed rules. The script must print a summary and exit non-zero if more than 20% of records are rejected.",
+  "schema": {
+    "source_columns": {
+      "appointment_id": "string",
+      "patient_id": "string",
+      "scheduled_at": "string",
+      "duration_min": "string or int",
+      "status": "string"
+    },
+    "target_columns": {
+      "valid": {
+        "appointment_id": "string",
+        "patient_id": "string",
+        "scheduled_at": "datetime64[ns, UTC]",
+        "duration_min": "int64",
+        "status": "string"
+      },
+      "rejects": {
+        "appointment_id": "string",
+        "failed_rules": "list of string",
+        "raw_record": "string (JSON)"
+      }
+    }
+  },
+  "test_data_sample": [
+    {
+      "appointment_id": "A1",
+      "patient_id": "P000123",
+      "scheduled_at": "2025-09-01T09:00:00Z",
+      "duration_min": 30,
+      "status": "Booked"
+    },
+    {
+      "appointment_id": "A2",
+      "patient_id": "P12345",
+      "scheduled_at": "2025-09-01T10:00:00Z",
+      "duration_min": 500,
+      "status": "completed"
+    },
+    {
+      "appointment_id": "A1",
+      "patient_id": "P000124",
+      "scheduled_at": "2025-09-01T11:00:00Z",
+      "duration_min": 15,
+      "status": "booked"
+    },
+    {
+      "appointment_id": "A3",
+      "patient_id": "P000125",
+      "scheduled_at": "not a date",
+      "duration_min": "45",
+      "status": "rescheduled"
+    },
+    {
+      "appointment_id": "A4",
+      "patient_id": "P000126",
+      "scheduled_at": "2025-09-02T08:00:00+02:00",
+      "duration_min": "5",
+      "status": "NO_SHOW"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "_dataset": "valid",
+      "appointment_id": "A1",
+      "patient_id": "P000123",
+      "scheduled_at": "2025-09-01T09:00:00Z",
+      "duration_min": 30,
+      "status": "booked"
+    },
+    {
+      "_dataset": "valid",
+      "appointment_id": "A4",
+      "patient_id": "P000126",
+      "scheduled_at": "2025-09-02T06:00:00Z",
+      "duration_min": 5,
+      "status": "no_show"
+    },
+    {
+      "_dataset": "rejects",
+      "appointment_id": "A2",
+      "failed_rules": [
+        "R2",
+        "R4"
+      ]
+    },
+    {
+      "_dataset": "rejects",
+      "appointment_id": "A1",
+      "failed_rules": [
+        "R1"
+      ]
+    },
+    {
+      "_dataset": "rejects",
+      "appointment_id": "A3",
+      "failed_rules": [
+        "R3",
+        "R5"
+      ]
+    }
+  ],
+  "edge_cases": [
+    "A2 fails two rules and both must be reported",
+    "The duplicate A1 keeps the first occurrence as valid and rejects the second",
+    "duration_min arrives as a string in some rows; '45' is valid, boundary value 5 is valid",
+    "valid + rejects row counts must equal the input row count",
+    "In the sample 3 of 5 records are rejected (60%), so the script must exit non-zero after writing both outputs"
+  ],
+  "common_failure_modes": [
+    "FM7: pd.to_datetime(errors='coerce') turns bad dates into NaT that pass through as valid rows",
+    "FM7: drop_duplicates removes the second A1 without recording a reject",
+    "FM7: Reject threshold computed but never enforced via exit code"
+  ]
+}

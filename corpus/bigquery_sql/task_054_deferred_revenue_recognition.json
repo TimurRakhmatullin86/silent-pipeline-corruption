@@ -1,0 +1,46 @@
+{
+  "task_id": "bq_054",
+  "category": "bigquery_sql",
+  "description": "Recognize invoice revenue ratably over each invoice's service period (daily straight-line). An invoice covers the days from service_start (inclusive) to service_end (exclusive); daily revenue = amount / number of days in the period. Monthly recognized revenue is the daily revenue multiplied by the number of service days that fall in the month. Exclude voided invoices. Report January through March 2025. Output columns: month (DATE), recognized_revenue (FLOAT64, 2 decimals), active_invoices (INT64, invoices with at least one service day in the month). Sort by month.",
+  "schema": {
+    "invoices": {
+      "columns": {
+        "invoice_id": {"type": "INT64", "description": "Primary key"},
+        "customer_id": {"type": "INT64", "description": "Foreign key to customers"},
+        "amount": {"type": "FLOAT64", "description": "Total invoiced amount for the service period"},
+        "service_start": {"type": "DATE", "description": "First service day (inclusive)"},
+        "service_end": {"type": "DATE", "description": "Day after the last service day (exclusive)"},
+        "is_void": {"type": "BOOL", "description": "Voided invoices carry no revenue"}
+      }
+    },
+    "customers": {
+      "columns": {
+        "customer_id": {"type": "INT64", "description": "Primary key"},
+        "customer_name": {"type": "STRING", "description": "Customer name"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "invoices", "rows": [
+      {"invoice_id": 1, "customer_id": 10, "amount": 365.0, "service_start": "2025-01-01", "service_end": "2026-01-01", "is_void": false},
+      {"invoice_id": 2, "customer_id": 11, "amount": 300.0, "service_start": "2025-01-16", "service_end": "2025-02-15", "is_void": false},
+      {"invoice_id": 3, "customer_id": 12, "amount": 900.0, "service_start": "2025-01-01", "service_end": "2025-04-01", "is_void": true}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"month": "2025-01-01", "recognized_revenue": 191.0, "active_invoices": 2},
+    {"month": "2025-02-01", "recognized_revenue": 168.0, "active_invoices": 2},
+    {"month": "2025-03-01", "recognized_revenue": 31.0, "active_invoices": 1}
+  ],
+  "edge_cases": [
+    "Invoice 2 spans two months: 16 days in January (160.0) and 14 days in February (140.0)",
+    "service_end is exclusive: 2025-02-15 itself earns nothing",
+    "Month lengths differ (31/28/31), so an annual invoice recognizes different amounts per month",
+    "The sum of recognized revenue over the full service period must equal the invoice amount"
+  ],
+  "common_failure_modes": [
+    "FM2: Treating service_end as inclusive adds one day (31-day period for invoice 2) and under-recognizes each day",
+    "FM3: Splitting evenly per calendar month (amount / 12 or amount / 2) instead of per day",
+    "FM7: No reconciliation that total recognized equals total invoiced, so rounding or boundary leaks go unnoticed"
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "task_id": "etl_096",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for ecom_market that checks referential integrity of orders against the customer master before loading. The script should: (1) normalize customer keys on both sides to a 5-character zero-padded string, since the orders extract stores them as integers or unpadded strings, (2) left-join orders to customers and separate orphans (orders whose customer does not exist) into an orphan report, (3) load non-orphan orders with the normalized key, (4) verify that the customer master has unique keys before joining and abort if not, (5) assert that the count of loaded plus orphan rows equals the input row count. In the sample, rows are tagged with _dataset = customers or orders.",
+  "schema": {
+    "source_columns": {
+      "customers": {
+        "customer_id": "string (5 chars, zero padded)",
+        "name": "string"
+      },
+      "orders": {
+        "order_id": "string",
+        "customer_id": "int or string (unpadded)",
+        "amount": "float"
+      }
+    },
+    "target_columns": {
+      "order_id": "string",
+      "customer_id": "string (5 chars)",
+      "customer_name": "string",
+      "amount": "float64"
+    }
+  },
+  "test_data_sample": [
+    {
+      "_dataset": "customers",
+      "customer_id": "00123",
+      "name": "Ann Lee"
+    },
+    {
+      "_dataset": "customers",
+      "customer_id": "00456",
+      "name": "Bo Chen"
+    },
+    {
+      "_dataset": "orders",
+      "order_id": "o1",
+      "customer_id": 123,
+      "amount": 25.0
+    },
+    {
+      "_dataset": "orders",
+      "order_id": "o2",
+      "customer_id": "456",
+      "amount": 40.0
+    },
+    {
+      "_dataset": "orders",
+      "order_id": "o3",
+      "customer_id": "789",
+      "amount": 15.0
+    },
+    {
+      "_dataset": "orders",
+      "order_id": "o4",
+      "customer_id": null,
+      "amount": 5.0
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "_dataset": "loaded",
+      "order_id": "o1",
+      "customer_id": "00123",
+      "customer_name": "Ann Lee",
+      "amount": 25.0
+    },
+    {
+      "_dataset": "loaded",
+      "order_id": "o2",
+      "customer_id": "00456",
+      "customer_name": "Bo Chen",
+      "amount": 40.0
+    },
+    {
+      "_dataset": "orphans",
+      "order_id": "o3",
+      "customer_id": "00789",
+      "reason": "customer_not_found"
+    },
+    {
+      "_dataset": "orphans",
+      "order_id": "o4",
+      "customer_id": null,
+      "reason": "customer_id_null"
+    }
+  ],
+  "edge_cases": [
+    "Merging int 123 with string '00123' matches nothing (or raises on dtype mismatch); keys must be normalized first",
+    "A column mixing ints and None becomes float in pandas (123.0); naive str() conversion yields '123.0'",
+    "o4 has a null key: it is an orphan with its own reason and must not be padded to '00nan' or '0None'",
+    "Duplicate customer_id in the master would duplicate orders; validate uniqueness (merge validate='many_to_one')"
+  ],
+  "common_failure_modes": [
+    "FM1: Type-mismatched join keys produce zero matches and every order is treated as orphan or dropped",
+    "FM1: Inner join silently discards orphan orders",
+    "FM7: No row-count conservation check between input and outputs"
+  ]
+}

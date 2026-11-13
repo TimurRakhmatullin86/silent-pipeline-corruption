@@ -1,0 +1,51 @@
+{
+  "task_id": "bq_008",
+  "category": "bigquery_sql",
+  "description": "Calculate monthly gross revenue, refunds, and net revenue for the online store. Gross revenue is the sum of amount for all orders with status in ('completed', 'partially_refunded', 'refunded'). Refunds are attributed to the month of the ORIGINAL order (order_ts), not the month the refund was issued. An order can have multiple partial refunds. Net revenue = gross revenue - refunds. Output columns: month (DATE), gross_revenue (FLOAT64), refund_amount (FLOAT64), net_revenue (FLOAT64).",
+  "schema": {
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "customer_id": {"type": "INT64", "description": "Customer identifier"},
+        "order_ts": {"type": "TIMESTAMP", "description": "UTC timestamp of the order"},
+        "status": {"type": "STRING", "description": "completed, partially_refunded, refunded, cancelled"},
+        "amount": {"type": "FLOAT64", "description": "Original order amount"}
+      }
+    },
+    "refunds": {
+      "columns": {
+        "refund_id": {"type": "INT64", "description": "Primary key"},
+        "order_id": {"type": "INT64", "description": "Foreign key to orders; zero or more refunds per order"},
+        "refund_amount": {"type": "FLOAT64", "description": "Refunded amount (positive number)"},
+        "refund_ts": {"type": "TIMESTAMP", "description": "UTC timestamp when the refund was issued"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "orders", "rows": [
+      {"order_id": 1, "customer_id": 10, "order_ts": "2025-01-10T09:00:00Z", "status": "partially_refunded", "amount": 100.0},
+      {"order_id": 2, "customer_id": 11, "order_ts": "2025-01-22T09:00:00Z", "status": "completed", "amount": 60.0},
+      {"order_id": 3, "customer_id": 12, "order_ts": "2025-02-03T09:00:00Z", "status": "refunded", "amount": 40.0}
+    ]},
+    {"table": "refunds", "rows": [
+      {"refund_id": 1, "order_id": 1, "refund_amount": 30.0, "refund_ts": "2025-02-02T12:00:00Z"},
+      {"refund_id": 2, "order_id": 1, "refund_amount": 20.0, "refund_ts": "2025-02-10T12:00:00Z"},
+      {"refund_id": 3, "order_id": 3, "refund_amount": 40.0, "refund_ts": "2025-02-05T12:00:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"month": "2025-01-01", "gross_revenue": 160.0, "refund_amount": 50.0, "net_revenue": 110.0},
+    {"month": "2025-02-01", "gross_revenue": 40.0, "refund_amount": 40.0, "net_revenue": 0.0}
+  ],
+  "edge_cases": [
+    "Order with two partial refunds must not have its gross amount counted twice",
+    "Refund issued in a later month is still attributed to the order month",
+    "Orders with no refunds must yield refund_amount = 0, not NULL",
+    "Fully refunded orders remain in gross revenue"
+  ],
+  "common_failure_modes": [
+    "FM1: LEFT JOIN orders to refunds and then SUM(amount) duplicates gross revenue for orders with multiple refunds",
+    "FM2: Grouping refunds by refund_ts month instead of order_ts month",
+    "FM5: gross - SUM(refund_amount) returns NULL for months without refunds when COALESCE is missing"
+  ]
+}

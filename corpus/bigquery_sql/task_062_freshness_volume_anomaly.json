@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_062",
+  "category": "bigquery_sql",
+  "description": "Detect load anomalies from a pipeline audit log. For each monitored table and each calendar date between its first and last load_date, report at most one issue with this priority: (1) 'missing_load' when no audit row exists for the date; (2) 'volume_drop' when row_count < min_volume_ratio * baseline_avg, where baseline_avg is the average row_count of up to 7 previous loads of the table (existing rows only, current load excluded; no check when there is no previous load); (3) 'stale_data' when the hours between max_event_ts and the end of the load date (midnight following load_date, UTC) exceed max_lag_hours. Dates without an issue are not returned. Output columns: table_name (STRING), load_date (DATE), issue_type (STRING), row_count (INT64), baseline_avg (FLOAT64, 1 decimal). Sort by table_name, load_date.",
+  "schema": {
+    "load_audit": {
+      "columns": {
+        "table_name": {"type": "STRING", "description": "Monitored table"},
+        "load_date": {"type": "DATE", "description": "Logical load date; at most one row per table per date"},
+        "row_count": {"type": "INT64", "description": "Rows loaded"},
+        "max_event_ts": {"type": "TIMESTAMP", "description": "Latest event timestamp contained in the load (UTC)"}
+      }
+    },
+    "dq_config": {
+      "columns": {
+        "table_name": {"type": "STRING", "description": "Monitored table"},
+        "min_volume_ratio": {"type": "FLOAT64", "description": "Minimum acceptable row_count / baseline_avg"},
+        "max_lag_hours": {"type": "INT64", "description": "Maximum acceptable data lag in hours"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "load_audit", "rows": [
+      {"table_name": "orders", "load_date": "2025-06-01", "row_count": 1000, "max_event_ts": "2025-06-01T23:00:00Z"},
+      {"table_name": "orders", "load_date": "2025-06-02", "row_count": 1000, "max_event_ts": "2025-06-02T23:00:00Z"},
+      {"table_name": "orders", "load_date": "2025-06-03", "row_count": 1000, "max_event_ts": "2025-06-03T23:00:00Z"},
+      {"table_name": "orders", "load_date": "2025-06-04", "row_count": 400, "max_event_ts": "2025-06-04T23:00:00Z"},
+      {"table_name": "orders", "load_date": "2025-06-06", "row_count": 1000, "max_event_ts": "2025-06-05T12:00:00Z"}
+    ]},
+    {"table": "dq_config", "rows": [
+      {"table_name": "orders", "min_volume_ratio": 0.5, "max_lag_hours": 30}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"table_name": "orders", "load_date": "2025-06-04", "issue_type": "volume_drop", "row_count": 400, "baseline_avg": 1000.0},
+    {"table_name": "orders", "load_date": "2025-06-05", "issue_type": "missing_load", "row_count": null, "baseline_avg": null},
+    {"table_name": "orders", "load_date": "2025-06-06", "issue_type": "stale_data", "row_count": 1000, "baseline_avg": 850.0}
+  ],
+  "edge_cases": [
+    "2025-06-05 has no audit row at all; it can only be found with a generated date spine",
+    "The baseline for 2025-06-06 includes the anomalous 400 (average 850) and excludes the current load",
+    "The first load of a table has no baseline and cannot be a volume_drop",
+    "2025-06-06: lag from 2025-06-05T12:00Z to 2025-06-07T00:00Z is 36 hours (> 30)"
+  ],
+  "common_failure_modes": [
+    "FM7: Checking only existing audit rows can never detect a missing load",
+    "FM3: Window frame that includes the current row (ROWS BETWEEN 7 PRECEDING AND CURRENT ROW) dilutes the baseline with the anomaly itself",
+    "FM2: Measuring lag against CURRENT_TIMESTAMP() or the start of load_date instead of the end of load_date makes results non-reproducible or off by 24 hours"
+  ]
+}

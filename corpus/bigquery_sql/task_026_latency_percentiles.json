@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_026",
+  "category": "bigquery_sql",
+  "description": "Compute exact daily p50 and p95 latency per API endpoint for the content platform. Include only requests with status_code < 500 and a non-NULL latency_ms. Percentiles must use linear interpolation (PERCENTILE_CONT semantics), not approximate quantiles. Output one row per endpoint per UTC day. Output columns: request_date (DATE), endpoint_path (STRING), request_count (INT64), p50_ms (FLOAT64), p95_ms (FLOAT64).",
+  "schema": {
+    "api_requests": {
+      "columns": {
+        "request_id": {"type": "INT64", "description": "Primary key"},
+        "endpoint_id": {"type": "INT64", "description": "Foreign key to endpoints"},
+        "request_ts": {"type": "TIMESTAMP", "description": "UTC request timestamp"},
+        "latency_ms": {"type": "INT64", "description": "Response latency; NULL when the request timed out"},
+        "status_code": {"type": "INT64", "description": "HTTP status code"}
+      }
+    },
+    "endpoints": {
+      "columns": {
+        "endpoint_id": {"type": "INT64", "description": "Primary key"},
+        "endpoint_path": {"type": "STRING", "description": "Route path, e.g. /feed"},
+        "owner_team": {"type": "STRING", "description": "Owning team"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "api_requests", "rows": [
+      {"request_id": 1, "endpoint_id": 1, "request_ts": "2025-07-01T10:00:00Z", "latency_ms": 100, "status_code": 200},
+      {"request_id": 2, "endpoint_id": 1, "request_ts": "2025-07-01T10:01:00Z", "latency_ms": 200, "status_code": 200},
+      {"request_id": 3, "endpoint_id": 1, "request_ts": "2025-07-01T10:02:00Z", "latency_ms": 300, "status_code": 404},
+      {"request_id": 4, "endpoint_id": 1, "request_ts": "2025-07-01T10:03:00Z", "latency_ms": 400, "status_code": 200},
+      {"request_id": 5, "endpoint_id": 1, "request_ts": "2025-07-01T10:04:00Z", "latency_ms": 5000, "status_code": 503},
+      {"request_id": 6, "endpoint_id": 1, "request_ts": "2025-07-01T10:05:00Z", "latency_ms": null, "status_code": 200}
+    ]},
+    {"table": "endpoints", "rows": [
+      {"endpoint_id": 1, "endpoint_path": "/feed", "owner_team": "discovery"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"request_date": "2025-07-01", "endpoint_path": "/feed", "request_count": 4, "p50_ms": 250.0, "p95_ms": 385.0}
+  ],
+  "edge_cases": [
+    "5xx responses are excluded even if their latency is recorded",
+    "NULL latency rows are excluded from both the count and the percentiles",
+    "4xx responses are included",
+    "Endpoint-day with a single request has p50 = p95 = that latency"
+  ],
+  "common_failure_modes": [
+    "FM4: PERCENTILE_CONT is an analytic-only function in BigQuery; using it with GROUP BY fails, and using it with OVER without DISTINCT returns one row per request",
+    "FM4: APPROX_QUANTILES returns approximate, non-interpolated values (p50 = 200 or 300 instead of 250)",
+    "FM3: Filtering status in the percentile but not in request_count makes the two metrics inconsistent"
+  ]
+}

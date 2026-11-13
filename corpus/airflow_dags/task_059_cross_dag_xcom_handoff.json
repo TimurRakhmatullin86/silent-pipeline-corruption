@@ -1,0 +1,31 @@
+{
+  "task_id": "af_059",
+  "category": "airflow_dag",
+  "description": "Create two Airflow DAGs for logistics_co where 'carrier_rates_ingest' produces a versioned rates snapshot and 'shipment_costing' must use exactly the snapshot produced for the same data date. The ingest DAG must write the snapshot_id to a control table (not rely on cross-DAG XCom alone) and declare a Dataset outlet. The costing DAG must: (1) wait for the ingest DAG's run for the same date, (2) read snapshot_id from the control table for that date, (3) compute shipment costs by joining shipments to rates on carrier_id, service_level and the weight band containing the shipment weight, restricted to that snapshot_id, (4) fail if any shipment has no matching rate.",
+  "schema": {
+    "source": "ops.shipments, rates.carrier_rate_snapshots",
+    "control_table": "ops.rate_snapshot_control (data_date, snapshot_id, created_at)",
+    "target": "finance.shipment_costs"
+  },
+  "expected_behavior": {
+    "ingest_schedule": "0 1 * * *",
+    "costing_schedule": "0 3 * * *",
+    "catchup": true,
+    "max_active_runs": 1,
+    "snapshot_lookup": "WHERE data_date = '{{ ds }}'",
+    "unmatched_shipment_policy": "fail",
+    "retries": 2
+  },
+  "edge_cases": [
+    "Looking up the latest snapshot_id (ORDER BY created_at DESC LIMIT 1) is wrong during backfills: an old date would be costed with today's rates",
+    "Weight band join must use weight >= band_min AND weight < band_max; inclusive bounds on both sides duplicate shipments on band edges",
+    "A date with two snapshots (ingest rerun) must resolve to the most recent snapshot for that data_date only",
+    "xcom_pull across DAGs requires dag_id and include_prior_dates and is fragile; the control table is the source of truth",
+    "Shipments with no matching rate must fail the run, not be costed as 0"
+  ],
+  "common_failure_modes": [
+    "FM2: 'Latest snapshot' lookup applies current rates to historical shipments during catchup",
+    "FM1: BETWEEN on weight bands fans out shipments whose weight equals a band boundary",
+    "FM7: LEFT JOIN with COALESCE(rate, 0) hides shipments missing a rate"
+  ]
+}

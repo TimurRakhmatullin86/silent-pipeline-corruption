@@ -1,0 +1,30 @@
+{
+  "task_id": "af_054",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for iot_fleet that ingests device telemetry batches whose payload schema version varies by firmware. The DAG should: (1) read the batch manifest and extract schema_version, (2) branch to 'parse_v1', 'parse_v2', or 'parse_v3'; unknown versions route to 'quarantine_batch', (3) all parsers write to a common normalized staging table, (4) 'load_to_warehouse' runs after any parser, (5) 'quarantine_batch' moves the batch to a quarantine prefix and pages on-call, and the DAG run must end as failed. A manifest can list more than one schema version, in which case all matching parsers must run.",
+  "schema": {
+    "source": "s3://iot-fleet-ingest/batches/{{ ds }}/manifest.json",
+    "staging_table": "staging.telemetry_normalized",
+    "target": "warehouse.fct_device_telemetry",
+    "quarantine": "s3://iot-fleet-ingest/quarantine/{{ ds }}/"
+  },
+  "expected_behavior": {
+    "schedule": "30 * * * *",
+    "catchup": false,
+    "branch_returns": "list of task_ids",
+    "load_trigger_rule": "none_failed_min_one_success",
+    "quarantine_outcome": "run failed after quarantine",
+    "retries": 2
+  },
+  "edge_cases": [
+    "Mixed batches (v1 and v3 in the same manifest) must run both parsers; an unknown version alongside known ones must quarantine only the unknown files and still fail the run",
+    "schema_version may be an integer or a string ('2' vs 2) in the manifest; comparison must normalize the type",
+    "v1 payloads lack the battery_pct field: parsers must emit NULL, not 0",
+    "v3 renamed 'temp' to 'temperature_c'; the normalized column must be populated from whichever exists"
+  ],
+  "common_failure_modes": [
+    "FM5: Parser fills missing v1 fields with 0, corrupting battery averages downstream",
+    "FM6: Unknown version falls through to the latest parser instead of quarantine",
+    "FM6: load_to_warehouse uses all_success and is skipped whenever fewer than three parsers run"
+  ]
+}

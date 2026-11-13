@@ -1,0 +1,45 @@
+{
+  "task_id": "bq_048",
+  "category": "bigquery_sql",
+  "description": "Compute monthly churn rates per subscription start cohort. The cohort is the calendar month of start_date. For each cohort and month_offset (0 = cohort month), up to the latest calendar month present in the data (max of start_date and cancel_date): active_at_start = subscriptions of the cohort that are active at the beginning of that month (for offset 0: all subscriptions of the cohort; for later offsets: cancel_date IS NULL or cancel_date >= first day of the month); churned = subscriptions of the cohort whose cancel_date falls in that month; churn_rate = churned / active_at_start. Output columns: cohort_month (DATE), month_offset (INT64), active_at_start (INT64), churned (INT64), churn_rate (FLOAT64, 4 decimals).",
+  "schema": {
+    "subscriptions": {
+      "columns": {
+        "subscription_id": {"type": "INT64", "description": "Primary key"},
+        "customer_id": {"type": "INT64", "description": "Foreign key to customers"},
+        "start_date": {"type": "DATE", "description": "Subscription start"},
+        "cancel_date": {"type": "DATE", "description": "Date the subscription was cancelled; NULL if active"}
+      }
+    },
+    "customers": {
+      "columns": {
+        "customer_id": {"type": "INT64", "description": "Primary key"},
+        "country": {"type": "STRING", "description": "Country code"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "subscriptions", "rows": [
+      {"subscription_id": 1, "customer_id": 10, "start_date": "2025-01-05", "cancel_date": null},
+      {"subscription_id": 2, "customer_id": 11, "start_date": "2025-01-10", "cancel_date": "2025-02-15"},
+      {"subscription_id": 3, "customer_id": 12, "start_date": "2025-01-20", "cancel_date": "2025-01-25"},
+      {"subscription_id": 4, "customer_id": 13, "start_date": "2025-01-31", "cancel_date": "2025-03-01"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"cohort_month": "2025-01-01", "month_offset": 0, "active_at_start": 4, "churned": 1, "churn_rate": 0.25},
+    {"cohort_month": "2025-01-01", "month_offset": 1, "active_at_start": 3, "churned": 1, "churn_rate": 0.3333},
+    {"cohort_month": "2025-01-01", "month_offset": 2, "active_at_start": 2, "churned": 1, "churn_rate": 0.5}
+  ],
+  "edge_cases": [
+    "Subscription 3 starts and cancels within the cohort month (churn at offset 0)",
+    "Subscription 4 cancels on the first day of March: it is active at the start of March and churns in March",
+    "Active subscriptions with NULL cancel_date remain in every denominator",
+    "The denominator shrinks each month; it is not the original cohort size"
+  ],
+  "common_failure_modes": [
+    "FM3: Dividing by the original cohort size for every offset understates later churn rates",
+    "FM2: Using cancel_date > month_start excludes subscriptions cancelled on the first day from the active base",
+    "FM5: cancel_date >= month_start evaluates to NULL for active subscriptions and removes them from the base"
+  ]
+}

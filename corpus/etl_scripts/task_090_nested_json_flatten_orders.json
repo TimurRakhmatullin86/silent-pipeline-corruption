@@ -1,0 +1,115 @@
+{
+  "task_id": "etl_090",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for ecom_market that flattens nested order JSON documents into a line-item table. Each order has a nested customer object and an items array. The script should: (1) explode items to one row per line with a 1-based line_no, (2) extract customer.contact.email (may be missing at any level), (3) compute line_total = qty * unit_price rounded to 2 decimals, (4) keep order-level shipping_fee on line 1 only so that summing the column does not multiply it, (5) write orders with an empty or missing items array to a separate orders_without_items output.",
+  "schema": {
+    "source_columns": {
+      "order_id": "string",
+      "customer": "object {id, contact: {email}}",
+      "items": "array of {sku, qty, unit_price}",
+      "shipping_fee": "float"
+    },
+    "target_columns": {
+      "order_id": "string",
+      "line_no": "int",
+      "sku": "string",
+      "qty": "int",
+      "unit_price": "float",
+      "line_total": "float",
+      "customer_email": "string (nullable)",
+      "shipping_fee": "float (line 1 only, else 0.0)"
+    }
+  },
+  "test_data_sample": [
+    {
+      "order_id": "o1",
+      "customer": {
+        "id": "c1",
+        "contact": {
+          "email": "ann@example.com"
+        }
+      },
+      "items": [
+        {
+          "sku": "A",
+          "qty": 2,
+          "unit_price": 5.0
+        },
+        {
+          "sku": "B",
+          "qty": 1,
+          "unit_price": 3.5
+        }
+      ],
+      "shipping_fee": 4.99
+    },
+    {
+      "order_id": "o2",
+      "customer": {
+        "id": "c2",
+        "contact": {
+          "email": "bo@example.com"
+        }
+      },
+      "items": [],
+      "shipping_fee": 0.0
+    },
+    {
+      "order_id": "o3",
+      "customer": {
+        "id": "c3"
+      },
+      "items": [
+        {
+          "sku": "C",
+          "qty": 3,
+          "unit_price": 1.2
+        }
+      ],
+      "shipping_fee": 2.0
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "order_id": "o1",
+      "line_no": 1,
+      "sku": "A",
+      "qty": 2,
+      "unit_price": 5.0,
+      "line_total": 10.0,
+      "customer_email": "ann@example.com",
+      "shipping_fee": 4.99
+    },
+    {
+      "order_id": "o1",
+      "line_no": 2,
+      "sku": "B",
+      "qty": 1,
+      "unit_price": 3.5,
+      "line_total": 3.5,
+      "customer_email": "ann@example.com",
+      "shipping_fee": 0.0
+    },
+    {
+      "order_id": "o3",
+      "line_no": 1,
+      "sku": "C",
+      "qty": 3,
+      "unit_price": 1.2,
+      "line_total": 3.6,
+      "customer_email": null,
+      "shipping_fee": 2.0
+    }
+  ],
+  "edge_cases": [
+    "o2 has an empty items array: it must appear in orders_without_items, not vanish in the explode",
+    "o3 has no customer.contact key: customer_email is null and the script must not raise KeyError",
+    "Repeating shipping_fee on every line inflates total shipping (4.99 would be counted twice for o1)",
+    "3 * 1.2 is 3.5999999999999996 in binary floating point; line_total must be rounded to 3.6"
+  ],
+  "common_failure_modes": [
+    "FM3: Order-level fee repeated on each exploded line, inflating aggregates",
+    "FM1: explode / json_normalize silently drops orders with empty arrays",
+    "FM5: Missing nested keys raise or misalign columns"
+  ]
+}

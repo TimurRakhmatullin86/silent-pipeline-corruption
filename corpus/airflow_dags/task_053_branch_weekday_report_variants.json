@@ -1,0 +1,29 @@
+{
+  "task_id": "af_053",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for retail_chain that produces operational reports with different content depending on the day. The DAG should use BranchDayOfWeekOperator and @task.branch such that: every day runs 'daily_sales_report'; Mondays additionally run 'weekly_rollup'; the first business day of the month additionally runs 'monthly_close_report'. The branch callable must be able to return multiple task ids. All reports feed a final 'distribute_reports' task that emails whichever reports were produced.",
+  "schema": {
+    "source": "mart.daily_store_sales",
+    "target": "s3://retail-chain-reports/{{ ds }}/ (daily.pdf, weekly.pdf, monthly.pdf)"
+  },
+  "expected_behavior": {
+    "schedule": "0 7 * * *",
+    "timezone": "America/Chicago",
+    "catchup": false,
+    "branch_returns": "list of task_ids",
+    "use_task_logical_date": true,
+    "distribute_trigger_rule": "none_failed_min_one_success",
+    "retries": 1
+  },
+  "edge_cases": [
+    "Weekday must be evaluated against the logical date (use_task_logical_date=True), not the wall-clock date",
+    "First business day of the month: if the 1st is a Saturday, the monthly report runs on Monday the 3rd, together with the weekly rollup",
+    "weekly_rollup covers the previous Monday-Sunday, not the trailing 7 days including today",
+    "distribute_reports must attach only the reports whose tasks succeeded, determined from task states or XCom, not by checking for file existence from earlier runs"
+  ],
+  "common_failure_modes": [
+    "FM6: Branch callable returns a single task id, so the weekly and monthly reports can never run on the same day",
+    "FM2: Weekly rollup window computed as ds-7..ds includes the current partial day and misses the previous Monday",
+    "FM6: BranchDayOfWeekOperator without use_task_logical_date picks the wrong branch on reruns"
+  ]
+}

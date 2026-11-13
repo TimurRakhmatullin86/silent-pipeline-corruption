@@ -1,0 +1,78 @@
+{
+  "task_id": "etl_105",
+  "category": "etl_script",
+  "description": "Write a Python ETL script (requests + pandas) for saas_metrics that ingests all records from a cursor-paginated REST endpoint GET /v1/accounts?cursor=<cursor>&limit=2. Each response has the shape {data: [...], next_cursor: string or null}. The script should: (1) follow next_cursor until it is null, (2) guard against an endless loop when the API returns the same cursor twice, (3) deduplicate records on id because rows can shift between pages while paginating, (4) convert created_at from epoch seconds to UTC timestamps, (5) write the result to Parquet. The sample shows the two page responses.",
+  "schema": {
+    "source_columns": {
+      "id": "int",
+      "name": "string",
+      "created_at": "int (epoch seconds)"
+    },
+    "target_columns": {
+      "id": "int64",
+      "name": "string",
+      "created_at": "datetime64[ns, UTC]"
+    }
+  },
+  "test_data_sample": [
+    {
+      "data": [
+        {
+          "id": 1,
+          "name": "Acme",
+          "created_at": 1717200000
+        },
+        {
+          "id": 2,
+          "name": "Birch",
+          "created_at": 1717203600
+        }
+      ],
+      "next_cursor": "abc"
+    },
+    {
+      "data": [
+        {
+          "id": 2,
+          "name": "Birch",
+          "created_at": 1717203600
+        },
+        {
+          "id": 3,
+          "name": "Cedar",
+          "created_at": 1717207200
+        }
+      ],
+      "next_cursor": null
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "id": 1,
+      "name": "Acme",
+      "created_at": "2024-06-01T00:00:00Z"
+    },
+    {
+      "id": 2,
+      "name": "Birch",
+      "created_at": "2024-06-01T01:00:00Z"
+    },
+    {
+      "id": 3,
+      "name": "Cedar",
+      "created_at": "2024-06-01T02:00:00Z"
+    }
+  ],
+  "edge_cases": [
+    "id 2 appears on both pages and must be loaded once",
+    "Termination must be driven by next_cursor being null, not by a page having fewer than 'limit' rows or by an empty page",
+    "A repeated cursor must abort with an error instead of looping forever",
+    "created_at is in seconds; passing it to pd.to_datetime without unit='s' interprets it as nanoseconds (1970 dates)",
+    "A non-200 response in the middle of pagination must fail the run rather than write a partial file"
+  ],
+  "common_failure_modes": [
+    "FM7: Partial result written as if complete after a mid-pagination error",
+    "FM4: Epoch seconds interpreted as nanoseconds or milliseconds",
+    "FM3: Duplicates across pages inflate downstream counts"
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "task_id": "etl_111",
+  "category": "etl_script",
+  "description": "Write a Python ETL script (pandas) for fintech_app that converts a fixed-width bank statement file to CSV. Record layout (1-based positions, every line is 61 characters): record_type 1; for detail records 'D': account 2-11, booking date 12-19 (YYYYMMDD), sign 20 ('+' or '-'), amount 21-31 (11 digits, implied 2 decimals), description 32-61 (space padded). The header record 'H' carries the file date in 2-9. The trailer record 'T' carries the detail record count in 2-11, the sign of the control total in 20 and the control total in 21-31. The script should: (1) parse detail records by position, (2) keep account as a string, (3) apply the sign and the implied decimals, (4) strip padding from the description, (5) verify record count and control total against the trailer and abort on mismatch, (6) write a properly quoted CSV.",
+  "schema": {
+    "source_columns": {
+      "raw_line": "string (61 characters, fixed width)"
+    },
+    "target_columns": {
+      "account": "string (10 chars)",
+      "booking_date": "date",
+      "amount": "decimal(13,2)",
+      "description": "string"
+    }
+  },
+  "test_data_sample": [
+    "H20250317                                                    ",
+    "D000123456720250315+00000012550COFFEE SHOP                   ",
+    "D000123456720250316-00000100000RENT, MARCH                   ",
+    "T0000000002        -00000087450                              "
+  ],
+  "expected_output_sample": [
+    {
+      "account": "0001234567",
+      "booking_date": "2025-03-15",
+      "amount": "125.50",
+      "description": "COFFEE SHOP"
+    },
+    {
+      "account": "0001234567",
+      "booking_date": "2025-03-16",
+      "amount": "-1000.00",
+      "description": "RENT, MARCH"
+    }
+  ],
+  "edge_cases": [
+    "Header and trailer records must not be emitted as data rows",
+    "Positions in the layout are 1-based and inclusive; Python slices and pandas colspecs are 0-based and half-open",
+    "The description 'RENT, MARCH' contains a comma and must be quoted in the CSV output",
+    "Trailer validation for the sample: 2 detail records and control total -874.50 (125.50 - 1000.00)",
+    "Account numbers must keep leading zeros"
+  ],
+  "common_failure_modes": [
+    "FM4: Off-by-one column offsets shift the sign into the amount or truncate the account",
+    "FM7: Trailer count and control total ignored, so truncated files load without error",
+    "FM5: Account parsed as integer loses leading zeros"
+  ]
+}

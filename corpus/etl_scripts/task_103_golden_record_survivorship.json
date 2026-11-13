@@ -1,0 +1,80 @@
+{
+  "task_id": "etl_103",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for insurance_group that builds a golden customer record from three source systems with field-level survivorship rules. Rules: (1) name, email and phone take the first non-empty value in source priority order crm > billing > support, (2) address takes the value from the record with the most recent updated_at among records that have a non-empty address, (3) empty strings and whitespace-only strings count as missing, (4) the output has one row per person_id plus a provenance column recording which source supplied each field.",
+  "schema": {
+    "source_columns": {
+      "person_id": "string",
+      "source": "string (crm, billing, support)",
+      "name": "string",
+      "email": "string (nullable)",
+      "phone": "string (nullable)",
+      "address": "string (nullable)",
+      "updated_at": "date"
+    },
+    "target_columns": {
+      "person_id": "string",
+      "name": "string",
+      "email": "string",
+      "phone": "string",
+      "address": "string",
+      "provenance": "object {field: source}"
+    }
+  },
+  "test_data_sample": [
+    {
+      "person_id": "p1",
+      "source": "support",
+      "name": "Johnny",
+      "email": "jsmith@old.example",
+      "phone": "",
+      "address": "9 Old Rd",
+      "updated_at": "2024-12-01"
+    },
+    {
+      "person_id": "p1",
+      "source": "billing",
+      "name": "John Smith",
+      "email": "john@mail.example",
+      "phone": null,
+      "address": "1 Main St",
+      "updated_at": "2025-02-01"
+    },
+    {
+      "person_id": "p1",
+      "source": "crm",
+      "name": "J. Smith",
+      "email": null,
+      "phone": "555-0100",
+      "address": "  ",
+      "updated_at": "2025-03-01"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "person_id": "p1",
+      "name": "J. Smith",
+      "email": "john@mail.example",
+      "phone": "555-0100",
+      "address": "1 Main St",
+      "provenance": {
+        "name": "crm",
+        "email": "billing",
+        "phone": "crm",
+        "address": "billing"
+      }
+    }
+  ],
+  "edge_cases": [
+    "The crm record is the most recently updated but its address is whitespace only; address must come from billing (latest non-empty)",
+    "email is null in crm, so the next priority source (billing) supplies it, not support",
+    "Source priority must be an explicit ordering; alphabetical sort (billing < crm < support) gives the wrong winner",
+    "groupby().first() skips NaN but not empty strings, so blanks must be converted to NaN first",
+    "Input order is arbitrary and must not influence the result"
+  ],
+  "common_failure_modes": [
+    "FM3: Taking the whole row from the highest-priority or most recent source instead of field-level survivorship loses email and address",
+    "FM7: Empty strings treated as valid values override real data from lower-priority sources",
+    "FM1: Implicit alphabetical source ordering replaces the business priority"
+  ]
+}

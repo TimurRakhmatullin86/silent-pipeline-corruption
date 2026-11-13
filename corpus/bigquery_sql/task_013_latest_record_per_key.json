@@ -1,0 +1,47 @@
+{
+  "task_id": "bq_013",
+  "category": "bigquery_sql",
+  "description": "From a change-data-capture (CDC) log of customer updates, produce the current state of each customer. For each customer_id keep only the most recent change by updated_at (ties broken by higher change_seq). If the most recent change has op = 'D' (delete), the customer must not appear in the output. Output columns: customer_id (INT64), email (STRING), tier (STRING), updated_at (TIMESTAMP).",
+  "schema": {
+    "customer_changes": {
+      "columns": {
+        "change_seq": {"type": "INT64", "description": "Monotonic sequence number assigned by the CDC connector"},
+        "customer_id": {"type": "INT64", "description": "Business key"},
+        "email": {"type": "STRING", "description": "Email after the change; NULL on delete records"},
+        "tier": {"type": "STRING", "description": "Loyalty tier after the change; NULL on delete records"},
+        "op": {"type": "STRING", "description": "Operation: I (insert), U (update), D (delete)"},
+        "updated_at": {"type": "TIMESTAMP", "description": "UTC timestamp of the change in the source system"}
+      }
+    },
+    "cdc_batches": {
+      "columns": {
+        "batch_id": {"type": "INT64", "description": "Primary key"},
+        "min_change_seq": {"type": "INT64", "description": "First sequence in the batch"},
+        "max_change_seq": {"type": "INT64", "description": "Last sequence in the batch"},
+        "loaded_at": {"type": "TIMESTAMP", "description": "When the batch landed in BigQuery"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "customer_changes", "rows": [
+      {"change_seq": 1, "customer_id": 1, "email": "a@example.com", "tier": "basic", "op": "I", "updated_at": "2025-01-01T00:00:00Z"},
+      {"change_seq": 2, "customer_id": 1, "email": "a2@example.com", "tier": "gold", "op": "U", "updated_at": "2025-01-05T00:00:00Z"},
+      {"change_seq": 3, "customer_id": 2, "email": "b@example.com", "tier": "basic", "op": "I", "updated_at": "2025-01-02T00:00:00Z"},
+      {"change_seq": 4, "customer_id": 2, "email": null, "tier": null, "op": "D", "updated_at": "2025-01-06T00:00:00Z"},
+      {"change_seq": 5, "customer_id": 3, "email": "c@example.com", "tier": "silver", "op": "I", "updated_at": "2025-01-03T00:00:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"customer_id": 1, "email": "a2@example.com", "tier": "gold", "updated_at": "2025-01-05T00:00:00Z"},
+    {"customer_id": 3, "email": "c@example.com", "tier": "silver", "updated_at": "2025-01-03T00:00:00Z"}
+  ],
+  "edge_cases": [
+    "Customer whose latest operation is a delete must be excluded",
+    "Two changes with the same updated_at are ordered by change_seq",
+    "Customer deleted and later re-inserted must appear with the re-inserted values"
+  ],
+  "common_failure_modes": [
+    "FM3: Filtering op != 'D' before picking the latest row resurrects deleted customers with their pre-delete values",
+    "FM7: No deterministic tie-breaker in ORDER BY makes the result non-reproducible when updated_at collides"
+  ]
+}

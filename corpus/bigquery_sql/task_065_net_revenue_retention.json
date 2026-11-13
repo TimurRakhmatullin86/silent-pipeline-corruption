@@ -1,0 +1,44 @@
+{
+  "task_id": "bq_065",
+  "category": "bigquery_sql",
+  "description": "Compute 12-month Net Revenue Retention (NRR) and Gross Revenue Retention (GRR) for June 2025 from monthly MRR snapshots. The base is every customer with mrr > 0 in the snapshot 12 months earlier (June 2024). starting_mrr = their MRR then. For each base customer compare with their MRR now (0 if they have no row or mrr = 0): expansion = sum of increases; contraction = sum of decreases for customers still paying; churned_mrr = starting MRR of customers now at 0. ending_mrr = starting_mrr + expansion - contraction - churned_mrr. nrr = ending_mrr / starting_mrr. grr = (starting_mrr - contraction - churned_mrr) / starting_mrr. Customers who were not in the base (new since) are excluded everywhere. Output columns: month (DATE), starting_mrr, expansion, contraction, churned_mrr, ending_mrr (all FLOAT64), nrr (FLOAT64, 4 decimals), grr (FLOAT64, 4 decimals).",
+  "schema": {
+    "mrr_snapshots": {
+      "columns": {
+        "customer_id": {"type": "INT64", "description": "Foreign key to customers"},
+        "snapshot_month": {"type": "DATE", "description": "First day of the month"},
+        "mrr": {"type": "FLOAT64", "description": "Customer MRR at month end; churned customers have no row or mrr = 0"}
+      }
+    },
+    "customers": {
+      "columns": {
+        "customer_id": {"type": "INT64", "description": "Primary key"},
+        "segment": {"type": "STRING", "description": "smb, mid_market, enterprise"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "mrr_snapshots", "rows": [
+      {"customer_id": 1, "snapshot_month": "2024-06-01", "mrr": 100.0},
+      {"customer_id": 2, "snapshot_month": "2024-06-01", "mrr": 100.0},
+      {"customer_id": 3, "snapshot_month": "2024-06-01", "mrr": 50.0},
+      {"customer_id": 1, "snapshot_month": "2025-06-01", "mrr": 150.0},
+      {"customer_id": 3, "snapshot_month": "2025-06-01", "mrr": 40.0},
+      {"customer_id": 4, "snapshot_month": "2025-06-01", "mrr": 200.0}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"month": "2025-06-01", "starting_mrr": 250.0, "expansion": 50.0, "contraction": 10.0, "churned_mrr": 100.0, "ending_mrr": 190.0, "nrr": 0.76, "grr": 0.56}
+  ],
+  "edge_cases": [
+    "Customer 2 has no row in June 2025 (churned): contributes 100 to churned_mrr and 0 to ending_mrr",
+    "Customer 4 is new since the base month and must be excluded from ending_mrr",
+    "GRR ignores expansion and can never exceed 1.0",
+    "A customer that churned and came back within the 12 months is judged only by the two endpoint snapshots"
+  ],
+  "common_failure_modes": [
+    "FM1: INNER JOIN between the two snapshots drops churned customers, inflating NRR (190/150 = 1.27)",
+    "FM3: Using total current MRR (390) as ending_mrr includes new customers and yields NRR 1.56",
+    "FM2: Comparing with the previous available snapshot instead of exactly 12 calendar months earlier"
+  ]
+}

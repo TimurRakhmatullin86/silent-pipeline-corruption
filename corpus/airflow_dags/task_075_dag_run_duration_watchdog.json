@@ -1,0 +1,31 @@
+{
+  "task_id": "af_075",
+  "category": "airflow_dag",
+  "description": "Create an Airflow watchdog DAG for logistics_co that detects long-running and stuck DAG runs across the deployment. Every 10 minutes it should: (1) query the Airflow metadata database (via the REST API or a read-only session) for DAG runs in state 'running' or 'queued', (2) compare each run's elapsed time against a baseline of the p95 duration of that DAG's last 30 successful runs, alerting when elapsed > max(2 x p95, 15 minutes), (3) detect task instances stuck in 'queued' for more than 20 minutes, (4) send alerts grouped by owner, (5) exclude DAGs tagged 'no-watchdog' and the watchdog itself.",
+  "schema": {
+    "source": "Airflow metadata: dag_run, task_instance, dag_tag",
+    "target": "Slack channels mapped from DAG owner"
+  },
+  "expected_behavior": {
+    "schedule": "*/10 * * * *",
+    "catchup": false,
+    "max_active_runs": 1,
+    "baseline_window_runs": 30,
+    "threshold": "max(2 * p95_duration, 900s)",
+    "queued_threshold_seconds": 1200,
+    "min_history_runs": 5,
+    "retries": 0
+  },
+  "edge_cases": [
+    "DAGs with fewer than 5 successful runs have no reliable baseline and must use a fixed default threshold",
+    "Elapsed time must use start_date of the run, not logical_date; backfill runs have old logical dates but recent start dates",
+    "Baseline must include only successful scheduled runs, excluding manual and backfill run types",
+    "Sensor-heavy DAGs in reschedule mode legitimately run for hours; thresholds must come from their own baseline",
+    "The watchdog must be read-only and must not clear or mark tasks"
+  ],
+  "common_failure_modes": [
+    "FM2: Elapsed computed from logical_date flags every backfill run as stuck",
+    "FM3: Baseline averaged over all runs, including failed ones that ended early, underestimates normal duration",
+    "FM6: Watchdog monitoring itself creates self-referential alerts when the scheduler is slow"
+  ]
+}

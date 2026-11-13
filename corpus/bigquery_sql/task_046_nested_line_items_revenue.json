@@ -1,0 +1,48 @@
+{
+  "task_id": "bq_046",
+  "category": "bigquery_sql",
+  "description": "Orders are stored in a nested BigQuery table with a repeated STRUCT of line items and a repeated STRUCT of order-level discounts. Compute revenue per product category. Line gross = unit_price * quantity. The total of an order's discounts is allocated to its lines in proportion to line gross. Category comes from the products table via sku (unknown sku -> category 'uncategorized'). Output columns: category (STRING), gross_revenue (FLOAT64), net_revenue (FLOAT64, gross minus allocated discount, 2 decimals), order_count (INT64, distinct orders with at least one line in the category). Sort by category.",
+  "schema": {
+    "orders_nested": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "order_ts": {"type": "TIMESTAMP", "description": "UTC order timestamp"},
+        "line_items": {"type": "ARRAY<STRUCT<sku STRING, unit_price FLOAT64, quantity INT64>>", "description": "Repeated line items; may be an empty array"},
+        "discounts": {"type": "ARRAY<STRUCT<code STRING, amount FLOAT64>>", "description": "Repeated order-level discounts; may be empty"}
+      }
+    },
+    "products": {
+      "columns": {
+        "sku": {"type": "STRING", "description": "Primary key"},
+        "category": {"type": "STRING", "description": "Product category"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "orders_nested", "rows": [
+      {"order_id": 1, "order_ts": "2025-04-01T10:00:00Z", "line_items": [{"sku": "A", "unit_price": 10.0, "quantity": 2}, {"sku": "B", "unit_price": 30.0, "quantity": 1}], "discounts": [{"code": "X", "amount": 5.0}, {"code": "Y", "amount": 5.0}]},
+      {"order_id": 2, "order_ts": "2025-04-02T10:00:00Z", "line_items": [], "discounts": []},
+      {"order_id": 3, "order_ts": "2025-04-03T10:00:00Z", "line_items": [{"sku": "C", "unit_price": 15.0, "quantity": 1}], "discounts": []}
+    ]},
+    {"table": "products", "rows": [
+      {"sku": "A", "category": "Books"},
+      {"sku": "B", "category": "Games"},
+      {"sku": "C", "category": "Books"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"category": "Books", "gross_revenue": 35.0, "net_revenue": 31.0, "order_count": 2},
+    {"category": "Games", "gross_revenue": 30.0, "net_revenue": 24.0, "order_count": 1}
+  ],
+  "edge_cases": [
+    "Order 1 has 2 line items and 2 discounts; unnesting both arrays in one FROM clause yields 4 rows",
+    "Order 3 has line items but an empty discounts array and must not be dropped",
+    "Order 2 has an empty line_items array and contributes nothing",
+    "An order whose gross is 0 must not cause division by zero during allocation"
+  ],
+  "common_failure_modes": [
+    "FM1: CROSS JOIN UNNEST(line_items), UNNEST(discounts) creates a cartesian product (gross doubled) and drops orders with an empty discounts array",
+    "FM4: Comma/CROSS JOIN UNNEST removes rows with empty arrays; LEFT JOIN UNNEST or a correlated subquery is needed",
+    "FM3: Subtracting the full order discount from every line instead of allocating it proportionally"
+  ]
+}

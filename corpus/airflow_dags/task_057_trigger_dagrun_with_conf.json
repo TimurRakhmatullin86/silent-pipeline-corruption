@@ -1,0 +1,39 @@
+{
+  "task_id": "af_057",
+  "category": "airflow_dag",
+  "description": "Create a controller DAG 'regional_close_controller' for insurance_group that triggers the 'regional_claims_close' DAG once per region using TriggerDagRunOperator with dynamic task mapping. The controller must: (1) read the list of active regions from a config table, (2) trigger one child run per region passing conf {'region': ..., 'close_date': '{{ ds }}'}, (3) wait for all child runs to complete, (4) run a consolidated reconciliation only if every region succeeded, (5) send a summary listing failed regions otherwise. Child run ids must be deterministic so that a controller rerun does not launch duplicates.",
+  "schema": {
+    "source": "config.active_regions",
+    "child_dag": "regional_claims_close",
+    "target": "finance.claims_close_consolidated"
+  },
+  "expected_behavior": {
+    "schedule": "0 3 1 * *",
+    "catchup": false,
+    "wait_for_completion": true,
+    "poke_interval": 60,
+    "trigger_run_id": "close__{{ ds }}__{{ region }}",
+    "reset_dag_run": true,
+    "allowed_states": [
+      "success"
+    ],
+    "failed_states": [
+      "failed"
+    ],
+    "reconcile_trigger_rule": "all_success",
+    "summary_trigger_rule": "all_done",
+    "retries": 0
+  },
+  "edge_cases": [
+    "Without a deterministic trigger_run_id plus reset_dag_run=True, clearing the controller creates a second child run for the same region and date",
+    "wait_for_completion=True is required; otherwise the trigger task succeeds as soon as the child is queued",
+    "close_date passed in conf must be the controller's logical date, not the child's own logical date (which is the trigger time)",
+    "The child DAG must read params from dag_run.conf and fail clearly if 'region' is missing",
+    "Monthly schedule: the run that executes on 1 March has logical date 1 February; close_date refers to the closed month"
+  ],
+  "common_failure_modes": [
+    "FM6: wait_for_completion left False, so reconciliation runs before any regional close has finished",
+    "FM2: Child DAG uses its own ds (trigger timestamp) instead of conf['close_date'] and closes the wrong period",
+    "FM6: Non-deterministic run ids produce duplicate regional closes on retry"
+  ]
+}

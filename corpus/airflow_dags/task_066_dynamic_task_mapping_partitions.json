@@ -1,0 +1,30 @@
+{
+  "task_id": "af_066",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for adtech_platform that processes a variable number of advertiser files each day using dynamic task mapping. The DAG should: (1) list files under the day's prefix, (2) use .expand() to run 'transform_file' once per file with partial() for shared arguments, (3) use a mapped 'load_file' task chained to each transform output, (4) reduce with a 'reconcile' task that receives all load results and compares total rows against the manifest, (5) handle the zero-files case by skipping the mapped tasks and failing reconcile only if the manifest expected files.",
+  "schema": {
+    "source": "s3://adtech-platform-raw/advertiser_spend/dt={{ ds }}/*.csv.gz and manifest.json",
+    "target": "warehouse.fct_advertiser_spend"
+  },
+  "expected_behavior": {
+    "schedule": "0 6 * * *",
+    "catchup": false,
+    "mapping": "transform_file.partial(ds=...).expand(path=list_files())",
+    "max_map_length": 1024,
+    "max_active_tis_per_dag": 16,
+    "reconcile_trigger_rule": "none_failed",
+    "retries": 2
+  },
+  "edge_cases": [
+    "list_files must exclude manifest.json and zero-byte files",
+    "A mapped task expanded over an empty list is skipped; reconcile must use a trigger rule that still runs",
+    "Reconcile must sum per-file row counts from the lazily-resolved mapped XCom, not count the number of mapped instances",
+    "More files than max_map_length fails the run; the lister should chunk file lists when above the limit",
+    "Each load must be idempotent per file (delete rows for source_file before insert)"
+  ],
+  "common_failure_modes": [
+    "FM6: Reconcile with all_success is skipped on empty days and the missing-data condition is never detected",
+    "FM7: Reconcile compares file counts instead of row counts",
+    "FM6: Non-idempotent mapped load duplicates rows when one map index is retried"
+  ]
+}

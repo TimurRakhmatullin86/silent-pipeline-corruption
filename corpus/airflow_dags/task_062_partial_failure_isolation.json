@@ -1,0 +1,31 @@
+{
+  "task_id": "af_062",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for saas_metrics that loads usage data for about 40 tenants using dynamic task mapping, where one tenant's failure must not block the others. The DAG should: (1) list active tenants, (2) map 'load_tenant' over them with max_active_tis_per_dag=8, (3) run 'summarize' with trigger_rule='all_done' to collect which tenants succeeded or failed, (4) run 'refresh_global_dashboard' only if at least 90% of tenants succeeded, (5) fail the DAG run if any tenant failed, after the dashboard decision has been made.",
+  "schema": {
+    "source": "tenant databases listed in control.tenants (is_active = true)",
+    "target": "analytics.tenant_usage_daily, analytics.global_usage_dashboard"
+  },
+  "expected_behavior": {
+    "schedule": "0 5 * * *",
+    "catchup": false,
+    "mapped_task": "load_tenant",
+    "max_active_tis_per_dag": 8,
+    "retries": 2,
+    "summarize_trigger_rule": "all_done",
+    "dashboard_threshold": 0.9,
+    "final_status_task": "raises if any mapped instance failed"
+  },
+  "edge_cases": [
+    "Mapped task results from failed instances are absent from XCom; success must be determined from task instance states, not from the length of the returned list alone",
+    "Zero active tenants yields a mapped task with zero instances (skipped); summarize must handle this without division by zero",
+    "The dashboard must exclude tenants that failed today rather than show stale values labelled as today's",
+    "The final status task must run after the dashboard so that a partial failure still refreshes it but the run is red",
+    "Tenant list must be evaluated at run time (task), not at parse time"
+  ],
+  "common_failure_modes": [
+    "FM6: all_done summarize as the leaf turns every partial failure into a green DAG run",
+    "FM3: Success ratio computed over successful results only (always 100%)",
+    "FM7: Dashboard mixes today's tenants with yesterday's rows for failed tenants without a freshness flag"
+  ]
+}

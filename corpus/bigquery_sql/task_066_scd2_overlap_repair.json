@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_066",
+  "category": "bigquery_sql",
+  "description": "Repair a corrupted Type-2 history of employee department assignments so that, per employee, versions are unique, contiguous and non-overlapping. Steps: (1) when several rows share (employee_id, valid_from), keep only the one with the latest loaded_at; (2) merge consecutive versions (ordered by valid_from) that have the same department into one version starting at the earliest valid_from; (3) recompute valid_to as the next version's valid_from (ignoring the stored valid_to, which may overlap or leave gaps); the last version has valid_to NULL. Only employees present in the employees table are kept. Output columns: employee_id (INT64), department (STRING), valid_from (DATE), valid_to (DATE). Sort by employee_id, valid_from.",
+  "schema": {
+    "employee_department_history": {
+      "columns": {
+        "employee_id": {"type": "INT64", "description": "Business key"},
+        "department": {"type": "STRING", "description": "Department during the version"},
+        "valid_from": {"type": "DATE", "description": "Version start (inclusive); trustworthy"},
+        "valid_to": {"type": "DATE", "description": "Version end (exclusive); NOT trustworthy - overlaps and gaps exist"},
+        "loaded_at": {"type": "TIMESTAMP", "description": "When the row was written; reloads created duplicates"}
+      }
+    },
+    "employees": {
+      "columns": {
+        "employee_id": {"type": "INT64", "description": "Primary key"},
+        "full_name": {"type": "STRING", "description": "Employee name"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "employee_department_history", "rows": [
+      {"employee_id": 1, "department": "Analytics", "valid_from": "2024-01-01", "valid_to": "2024-06-01", "loaded_at": "2024-01-01T02:00:00Z"},
+      {"employee_id": 1, "department": "Billing", "valid_from": "2024-05-01", "valid_to": "2024-09-01", "loaded_at": "2024-05-01T02:00:00Z"},
+      {"employee_id": 1, "department": "Billing", "valid_from": "2024-05-01", "valid_to": null, "loaded_at": "2024-05-02T02:00:00Z"},
+      {"employee_id": 1, "department": "Billing", "valid_from": "2024-07-01", "valid_to": "2024-09-01", "loaded_at": "2024-07-01T02:00:00Z"},
+      {"employee_id": 1, "department": "Compliance", "valid_from": "2024-10-01", "valid_to": null, "loaded_at": "2024-10-01T02:00:00Z"}
+    ]},
+    {"table": "employees", "rows": [
+      {"employee_id": 1, "full_name": "Noor"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"employee_id": 1, "department": "Analytics", "valid_from": "2024-01-01", "valid_to": "2024-05-01"},
+    {"employee_id": 1, "department": "Billing", "valid_from": "2024-05-01", "valid_to": "2024-10-01"},
+    {"employee_id": 1, "department": "Compliance", "valid_from": "2024-10-01", "valid_to": null}
+  ],
+  "edge_cases": [
+    "Analytics originally overlaps Billing by one month; its valid_to is pulled back to 2024-05-01",
+    "Duplicate (employee, valid_from) rows from a reload collapse to the latest loaded_at",
+    "Two consecutive Billing versions (2024-05-01 and 2024-07-01) merge into one",
+    "The stored gap between 2024-09-01 and 2024-10-01 is closed by extending Billing to 2024-10-01"
+  ],
+  "common_failure_modes": [
+    "FM3: Computing LEAD(valid_from) before removing duplicates and merging identical neighbours yields zero-length or fragmented versions",
+    "FM3: GROUP BY employee_id, department to merge versions also merges non-adjacent periods (A -> B -> A)",
+    "FM7: No post-check that versions are non-overlapping and that exactly one open-ended row exists per employee"
+  ]
+}

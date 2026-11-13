@@ -1,0 +1,49 @@
+{
+  "task_id": "bq_015",
+  "category": "bigquery_sql",
+  "description": "Compute signup cohort sizes by month and acquisition channel for the subscription service. A cohort is defined by the UTC month of signup_ts. Count only users with email_verified = TRUE. Users with a NULL channel_id, or a channel_id that has no match in channels, are reported under channel_name = 'unknown'. Output columns: cohort_month (DATE), channel_name (STRING), cohort_size (INT64). Sort by cohort_month, channel_name.",
+  "schema": {
+    "users": {
+      "columns": {
+        "user_id": {"type": "INT64", "description": "Primary key"},
+        "signup_ts": {"type": "TIMESTAMP", "description": "UTC signup timestamp"},
+        "channel_id": {"type": "INT64", "description": "Foreign key to channels; NULL when attribution failed"},
+        "email_verified": {"type": "BOOL", "description": "Whether the user verified their email"}
+      }
+    },
+    "channels": {
+      "columns": {
+        "channel_id": {"type": "INT64", "description": "Primary key"},
+        "channel_name": {"type": "STRING", "description": "organic, paid_search, referral, ..."},
+        "is_paid": {"type": "BOOL", "description": "Paid acquisition channel flag"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "users", "rows": [
+      {"user_id": 1, "signup_ts": "2025-01-03T09:00:00Z", "channel_id": 1, "email_verified": true},
+      {"user_id": 2, "signup_ts": "2025-01-15T09:00:00Z", "channel_id": 1, "email_verified": true},
+      {"user_id": 3, "signup_ts": "2025-01-20T09:00:00Z", "channel_id": null, "email_verified": true},
+      {"user_id": 4, "signup_ts": "2025-01-31T23:30:00Z", "channel_id": 2, "email_verified": true},
+      {"user_id": 5, "signup_ts": "2025-02-01T00:10:00Z", "channel_id": 1, "email_verified": false}
+    ]},
+    {"table": "channels", "rows": [
+      {"channel_id": 1, "channel_name": "organic", "is_paid": false},
+      {"channel_id": 2, "channel_name": "paid_search", "is_paid": true}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"cohort_month": "2025-01-01", "channel_name": "organic", "cohort_size": 2},
+    {"cohort_month": "2025-01-01", "channel_name": "paid_search", "cohort_size": 1},
+    {"cohort_month": "2025-01-01", "channel_name": "unknown", "cohort_size": 1}
+  ],
+  "edge_cases": [
+    "Signup at 2025-01-31T23:30Z belongs to the January cohort in UTC",
+    "Users with NULL channel_id must be kept under 'unknown'",
+    "Unverified users are excluded even if they are the only user of a cohort"
+  ],
+  "common_failure_modes": [
+    "FM1: INNER JOIN to channels drops users with NULL or unmatched channel_id",
+    "FM2: Truncating the month in a non-UTC timezone moves end-of-month signups into the next cohort"
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "task_id": "bq_050",
+  "category": "bigquery_sql",
+  "description": "Detect double-booked doctors in the healthcare scheduling data using a self-join. Two appointments of the same doctor overlap when a.start_ts < b.end_ts AND b.start_ts < a.end_ts (half-open intervals: back-to-back appointments do not overlap). Ignore appointments with status = 'cancelled'. Report each overlapping pair exactly once with the lower appointment_id first, and the overlap length in minutes. Output columns: doctor_name (STRING), appointment_id_a (INT64), appointment_id_b (INT64), overlap_minutes (INT64). Sort by doctor_name, appointment_id_a, appointment_id_b.",
+  "schema": {
+    "appointments": {
+      "columns": {
+        "appointment_id": {"type": "INT64", "description": "Primary key"},
+        "doctor_id": {"type": "INT64", "description": "Foreign key to doctors"},
+        "start_ts": {"type": "TIMESTAMP", "description": "UTC start (inclusive)"},
+        "end_ts": {"type": "TIMESTAMP", "description": "UTC end (exclusive)"},
+        "status": {"type": "STRING", "description": "booked, completed, cancelled"}
+      }
+    },
+    "doctors": {
+      "columns": {
+        "doctor_id": {"type": "INT64", "description": "Primary key"},
+        "doctor_name": {"type": "STRING", "description": "Doctor name"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "appointments", "rows": [
+      {"appointment_id": 1, "doctor_id": 1, "start_ts": "2025-05-01T09:00:00Z", "end_ts": "2025-05-01T10:00:00Z", "status": "booked"},
+      {"appointment_id": 2, "doctor_id": 1, "start_ts": "2025-05-01T09:30:00Z", "end_ts": "2025-05-01T10:30:00Z", "status": "booked"},
+      {"appointment_id": 3, "doctor_id": 1, "start_ts": "2025-05-01T10:30:00Z", "end_ts": "2025-05-01T11:00:00Z", "status": "booked"},
+      {"appointment_id": 4, "doctor_id": 1, "start_ts": "2025-05-01T09:45:00Z", "end_ts": "2025-05-01T09:50:00Z", "status": "cancelled"},
+      {"appointment_id": 5, "doctor_id": 2, "start_ts": "2025-05-01T09:00:00Z", "end_ts": "2025-05-01T10:00:00Z", "status": "booked"}
+    ]},
+    {"table": "doctors", "rows": [
+      {"doctor_id": 1, "doctor_name": "Dr. Adams"},
+      {"doctor_id": 2, "doctor_name": "Dr. Baker"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"doctor_name": "Dr. Adams", "appointment_id_a": 1, "appointment_id_b": 2, "overlap_minutes": 30}
+  ],
+  "edge_cases": [
+    "Appointments 2 and 3 touch at 10:30 but do not overlap",
+    "Cancelled appointment 4 lies inside two others and must be ignored",
+    "Appointments of different doctors at the same time are not conflicts",
+    "An appointment fully contained in another overlaps for its whole duration"
+  ],
+  "common_failure_modes": [
+    "FM1: Self-join with a.appointment_id != b.appointment_id returns each pair twice; without any id condition each row also matches itself",
+    "FM2: Using <= in the overlap condition flags back-to-back appointments as conflicts",
+    "FM3: Filtering cancelled status on only one side of the self-join"
+  ]
+}

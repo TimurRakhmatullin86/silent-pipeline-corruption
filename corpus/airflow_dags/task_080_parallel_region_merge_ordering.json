@@ -1,0 +1,37 @@
+{
+  "task_id": "af_080",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for energy_grid that processes four market regions in parallel TaskGroups and then performs a serialized merge into a shared settlement table. Each region group runs extract >> transform >> stage in parallel with the other regions. The merge tasks for the four regions write to the same table and must run one at a time (pool with 1 slot), in any order, after their own region's stage task. A final 'settlement_totals' task runs after all four merges and checks that the sum of regional settled energy equals the grid-wide control total within 0.1%.",
+  "schema": {
+    "source": "market_<region>.interval_readings, market.control_totals",
+    "target": "settlement.interval_settlement, settlement.daily_totals"
+  },
+  "expected_behavior": {
+    "schedule": "0 9 * * *",
+    "catchup": false,
+    "regions": [
+      "NE",
+      "NW",
+      "SE",
+      "SW"
+    ],
+    "merge_pool": "settlement_merge",
+    "merge_pool_slots": 1,
+    "totals_trigger_rule": "all_success",
+    "tolerance": 0.001,
+    "retries": 2,
+    "merge_semantics": "delete region+date then insert"
+  },
+  "edge_cases": [
+    "Merges must be serialized via a single-slot pool; chaining them linearly would make a failure in one region block the others",
+    "Each merge must delete only its own region and date before inserting",
+    "Interval readings are 15-minute energy values in kWh while the control total is in MWh; units must be converted before comparison",
+    "Tolerance check is relative: abs(sum - control) / control <= 0.001; a control total of 0 must be handled",
+    "If one region fails, settlement_totals must not run and the three successful regions remain loaded"
+  ],
+  "common_failure_modes": [
+    "FM6: Concurrent merges into the same table deadlock or interleave delete/insert",
+    "FM3: Unit mismatch (kWh vs MWh) makes the control check meaningless or always failing",
+    "FM3: Delete scoped by date only removes other regions' rows already merged"
+  ]
+}

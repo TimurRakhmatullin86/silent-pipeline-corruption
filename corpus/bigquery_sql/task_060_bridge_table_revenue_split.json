@@ -1,0 +1,68 @@
+{
+  "task_id": "bq_060",
+  "category": "bigquery_sql",
+  "description": "Allocate invoice revenue to sales representatives through a many-to-many bridge table. An account can be shared by several reps, each with a split_pct (fraction). If the splits of an account do not sum to 1.0 they must be normalized (each split divided by the account's total split). Revenue of accounts with no reps in the bridge is reported under rep_name = 'unassigned'. Only invoices with status = 'paid' count. The total allocated revenue must equal the total paid invoice revenue. Output columns: rep_name (STRING), allocated_revenue (FLOAT64, 2 decimals), accounts (INT64, distinct accounts contributing). Sort by rep_name.",
+  "schema": {
+    "invoices": {
+      "columns": {
+        "invoice_id": {"type": "INT64", "description": "Primary key"},
+        "account_id": {"type": "INT64", "description": "Foreign key to accounts"},
+        "amount": {"type": "FLOAT64", "description": "Invoice amount"},
+        "status": {"type": "STRING", "description": "paid, open, void"}
+      }
+    },
+    "accounts": {
+      "columns": {
+        "account_id": {"type": "INT64", "description": "Primary key"},
+        "account_name": {"type": "STRING", "description": "Account name"}
+      }
+    },
+    "account_reps": {
+      "columns": {
+        "account_id": {"type": "INT64", "description": "Foreign key to accounts"},
+        "rep_id": {"type": "INT64", "description": "Foreign key to sales_reps"},
+        "split_pct": {"type": "FLOAT64", "description": "Fraction of the account credited to the rep; may not sum to 1 per account"}
+      }
+    },
+    "sales_reps": {
+      "columns": {
+        "rep_id": {"type": "INT64", "description": "Primary key"},
+        "rep_name": {"type": "STRING", "description": "Representative name"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "invoices", "rows": [
+      {"invoice_id": 1, "account_id": 1, "amount": 600.0, "status": "paid"},
+      {"invoice_id": 2, "account_id": 1, "amount": 400.0, "status": "paid"},
+      {"invoice_id": 3, "account_id": 2, "amount": 300.0, "status": "paid"},
+      {"invoice_id": 4, "account_id": 3, "amount": 200.0, "status": "paid"},
+      {"invoice_id": 5, "account_id": 2, "amount": 999.0, "status": "void"}
+    ]},
+    {"table": "account_reps", "rows": [
+      {"account_id": 1, "rep_id": 1, "split_pct": 0.6},
+      {"account_id": 1, "rep_id": 2, "split_pct": 0.4},
+      {"account_id": 2, "rep_id": 1, "split_pct": 0.5}
+    ]},
+    {"table": "sales_reps", "rows": [
+      {"rep_id": 1, "rep_name": "Rita"},
+      {"rep_id": 2, "rep_name": "Sam"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"rep_name": "Rita", "allocated_revenue": 900.0, "accounts": 2},
+    {"rep_name": "Sam", "allocated_revenue": 400.0, "accounts": 1},
+    {"rep_name": "unassigned", "allocated_revenue": 200.0, "accounts": 1}
+  ],
+  "edge_cases": [
+    "Account 1 has two invoices and two reps (2 x 2 rows after the join): amounts must be weighted, not duplicated",
+    "Account 2 has a single rep with split 0.5; after normalization the rep receives 100%",
+    "Account 3 has no reps and must appear as 'unassigned'",
+    "Sum of allocated_revenue (1500) equals the sum of paid invoices"
+  ],
+  "common_failure_modes": [
+    "FM1: Joining invoices to the bridge and summing amount without the split credits each rep with the full 1000 (total 2500)",
+    "FM1: INNER JOIN to account_reps loses revenue of unassigned accounts",
+    "FM7: No reconciliation of allocated vs. invoiced totals, so un-normalized splits (0.5) silently leak 150 of revenue"
+  ]
+}

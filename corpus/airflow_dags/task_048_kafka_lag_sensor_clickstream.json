@@ -1,0 +1,33 @@
+{
+  "task_id": "af_048",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for media_stream that compacts hourly clickstream data only after the streaming ingester has caught up. The DAG should: (1) use a custom sensor built with the @task.sensor TaskFlow decorator that queries the ingester's watermark table and returns PokeReturnValue(is_done=True, xcom_value=watermark) once watermark >= data_interval_end, (2) compact the hour's small Avro files into Parquet with a Spark job, (3) validate that the compacted row count equals the raw row count, (4) swap the partition location in the Hive metastore, (5) delete the raw small files only after the swap succeeds. The DAG runs hourly. The sensor polls every 2 minutes and times out after 50 minutes.",
+  "schema": {
+    "source": "s3://media-stream-raw/clicks/dt={{ ds }}/hr={{ data_interval_start.hour }}/*.avro",
+    "watermark_table": "ingest_meta.stream_watermarks",
+    "target": "s3://media-stream-curated/clicks/dt={{ ds }}/hr={{ data_interval_start.hour }}/"
+  },
+  "expected_behavior": {
+    "schedule": "@hourly",
+    "catchup": false,
+    "sensor_poke_interval": 120,
+    "sensor_timeout": 3000,
+    "sensor_mode": "reschedule",
+    "watermark_condition": "watermark >= data_interval_end",
+    "delete_raw_trigger_rule": "all_success",
+    "retries": 2,
+    "max_active_runs": 3
+  },
+  "edge_cases": [
+    "Watermark comparison must use data_interval_end (exclusive upper bound of the hour), not data_interval_start",
+    "Watermark timestamps are stored in UTC without tzinfo; they must be localized before comparison with the aware pendulum value",
+    "Raw file deletion must never run if validation or the metastore swap failed",
+    "Hour partition must be zero-padded (hr=07 not hr=7) to match the ingester's layout",
+    "Rerunning a completed hour must be idempotent (overwrite, not append)"
+  ],
+  "common_failure_modes": [
+    "FM2: Comparing the watermark against data_interval_start compacts the hour before all events arrive",
+    "FM6: Delete task set to trigger_rule='all_done' removes raw files after a failed compaction",
+    "FM7: Row count validation logs a mismatch but does not raise"
+  ]
+}

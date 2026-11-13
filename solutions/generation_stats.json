@@ -1,0 +1,20 @@
+{
+  "total_solutions": 450,
+  "correct": 258,
+  "correct_rate": 0.573,
+  "error_distribution": {
+    "FM2": 33,
+    "FM1": 38,
+    "FM3": 48,
+    "FM4": 14,
+    "FM7": 27,
+    "FM6": 27,
+    "FM5": 5
+  },
+  "seed": 42,
+  "generators": {
+    "gpt5": "GPT-5 (gpt-5-2025-08-07)",
+    "claude_sonnet4": "Claude Sonnet 4 (claude-sonnet-4-20250514)",
+    "deepseek_v3": "DeepSeek-V3 (deepseek-chat-v3-0324)"
+  }
+}

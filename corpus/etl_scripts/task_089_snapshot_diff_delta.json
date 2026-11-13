@@ -1,0 +1,98 @@
+{
+  "task_id": "etl_089",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for ecom_market that derives a change feed from two full daily snapshots of the product catalog. The script should: (1) read yesterday's and today's snapshot, (2) classify each product_id as insert (only in today), delete (only in yesterday), update (in both with any tracked column different) or unchanged, (3) output only inserts, updates and deletes with a change_type column and the new values (for deletes, the last known values), (4) compare tracked columns price, stock and description in a null-safe way. In the sample, rows are tagged with _dataset = yesterday or today.",
+  "schema": {
+    "source_columns": {
+      "product_id": "string",
+      "price": "decimal(10,2)",
+      "stock": "int",
+      "description": "string (nullable)"
+    },
+    "target_columns": {
+      "product_id": "string",
+      "change_type": "string (insert, update, delete)",
+      "price": "decimal(10,2)",
+      "stock": "int",
+      "description": "string"
+    }
+  },
+  "test_data_sample": [
+    {
+      "_dataset": "yesterday",
+      "product_id": "p1",
+      "price": "9.99",
+      "stock": 5,
+      "description": null
+    },
+    {
+      "_dataset": "yesterday",
+      "product_id": "p2",
+      "price": "4.50",
+      "stock": 0,
+      "description": "mug"
+    },
+    {
+      "_dataset": "yesterday",
+      "product_id": "p3",
+      "price": "20.00",
+      "stock": 2,
+      "description": "lamp"
+    },
+    {
+      "_dataset": "today",
+      "product_id": "p1",
+      "price": "9.990",
+      "stock": 5,
+      "description": null
+    },
+    {
+      "_dataset": "today",
+      "product_id": "p2",
+      "price": "4.75",
+      "stock": 0,
+      "description": "mug"
+    },
+    {
+      "_dataset": "today",
+      "product_id": "p4",
+      "price": "1.00",
+      "stock": 10,
+      "description": "pen"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "product_id": "p2",
+      "change_type": "update",
+      "price": "4.75",
+      "stock": 0,
+      "description": "mug"
+    },
+    {
+      "product_id": "p3",
+      "change_type": "delete",
+      "price": "20.00",
+      "stock": 2,
+      "description": "lamp"
+    },
+    {
+      "product_id": "p4",
+      "change_type": "insert",
+      "price": "1.00",
+      "stock": 10,
+      "description": "pen"
+    }
+  ],
+  "edge_cases": [
+    "p1 is unchanged: description is null in both snapshots and price '9.99' equals '9.990' numerically",
+    "A FULL OUTER merge is required; a left merge from today misses the delete of p3",
+    "stock becomes float when the outer merge introduces NaN; it must be cast back to a nullable integer",
+    "An empty or truncated 'today' snapshot would mark every product as deleted; the script must abort if today's row count drops by more than 50%"
+  ],
+  "common_failure_modes": [
+    "FM1: Left or inner merge drops deletes or inserts from the change feed",
+    "FM7: Null-unsafe or string-based comparison reports p1 as updated every day",
+    "FM7: No guard against an empty snapshot generating mass deletes"
+  ]
+}

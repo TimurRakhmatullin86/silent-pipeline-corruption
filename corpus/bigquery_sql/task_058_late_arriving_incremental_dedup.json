@@ -1,0 +1,51 @@
+{
+  "task_id": "bq_058",
+  "category": "bigquery_sql",
+  "description": "Write the SELECT of an incremental load that inserts new events from a staging table into a deduplicated target. The run processes staging rows whose ingested_at falls in the 3-day lookback window [@run_date - 2 days at 00:00 UTC, @run_date + 1 day at 00:00 UTC), with @run_date = DATE '2025-06-03'. Rules: (1) rows with NULL event_id are rejected; (2) within the window keep one row per event_id, the one with the earliest ingested_at; (3) do not emit events whose event_id already exists in the target, regardless of how old their event_ts is; (4) late-arriving events (event_ts before the window) that are not yet in the target must be emitted. Output columns: event_id (STRING), user_id (INT64), event_ts (TIMESTAMP), ingested_at (TIMESTAMP). Sort by event_id.",
+  "schema": {
+    "events_staging": {
+      "columns": {
+        "event_id": {"type": "STRING", "description": "Producer-assigned id; can repeat on redelivery; occasionally NULL"},
+        "user_id": {"type": "INT64", "description": "User identifier"},
+        "event_ts": {"type": "TIMESTAMP", "description": "UTC time the event happened on the device"},
+        "ingested_at": {"type": "TIMESTAMP", "description": "UTC arrival time; the table is partitioned on DATE(ingested_at)"}
+      }
+    },
+    "events_target": {
+      "columns": {
+        "event_id": {"type": "STRING", "description": "Unique event id"},
+        "user_id": {"type": "INT64", "description": "User identifier"},
+        "event_ts": {"type": "TIMESTAMP", "description": "UTC event time; the table is partitioned on DATE(event_ts)"},
+        "ingested_at": {"type": "TIMESTAMP", "description": "First arrival time"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "events_target", "rows": [
+      {"event_id": "e1", "user_id": 1, "event_ts": "2025-06-01T10:00:00Z", "ingested_at": "2025-06-01T10:00:30Z"}
+    ]},
+    {"table": "events_staging", "rows": [
+      {"event_id": "e1", "user_id": 1, "event_ts": "2025-06-01T10:00:00Z", "ingested_at": "2025-06-03T01:00:00Z"},
+      {"event_id": "e2", "user_id": 2, "event_ts": "2025-05-20T23:59:00Z", "ingested_at": "2025-06-03T02:00:00Z"},
+      {"event_id": "e3", "user_id": 3, "event_ts": "2025-06-03T05:00:00Z", "ingested_at": "2025-06-03T05:01:00Z"},
+      {"event_id": "e3", "user_id": 3, "event_ts": "2025-06-03T05:00:00Z", "ingested_at": "2025-06-03T05:02:00Z"},
+      {"event_id": null, "user_id": 4, "event_ts": "2025-06-03T06:00:00Z", "ingested_at": "2025-06-03T06:00:10Z"},
+      {"event_id": "e5", "user_id": 5, "event_ts": "2025-05-30T08:00:00Z", "ingested_at": "2025-05-30T08:00:05Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"event_id": "e2", "user_id": 2, "event_ts": "2025-05-20T23:59:00Z", "ingested_at": "2025-06-03T02:00:00Z"},
+    {"event_id": "e3", "user_id": 3, "event_ts": "2025-06-03T05:00:00Z", "ingested_at": "2025-06-03T05:01:00Z"}
+  ],
+  "edge_cases": [
+    "e1 was already loaded two days ago and is redelivered in the current window",
+    "e2 happened two weeks before the window but arrives now (late event) and must be loaded",
+    "e3 is duplicated inside the same window; the earliest arrival wins",
+    "e5 was ingested before the lookback window and is not this run's responsibility"
+  ],
+  "common_failure_modes": [
+    "FM2: Filtering the window on event_ts instead of ingested_at drops late-arriving e2 forever",
+    "FM1: Restricting the target lookup to the same recent event_ts partitions (for pruning) misses older duplicates, re-inserting already-loaded events",
+    "FM5: NOT IN against target ids misbehaves with NULL event_id; NULL ids also collapse into one 'duplicate' group if not rejected first"
+  ]
+}

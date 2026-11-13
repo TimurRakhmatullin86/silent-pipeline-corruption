@@ -1,0 +1,66 @@
+{
+  "task_id": "bq_070",
+  "category": "bigquery_sql",
+  "description": "Compute the customer-acquisition-cost (CAC) payback period per signup cohort and acquisition channel for the subscription service. A cohort is (UTC signup month, channel). acquisition_spend is the channel's spend in the cohort month (0 when there is no spend row). cac = acquisition_spend / cohort_size. Gross margin is 50% of successful payment amounts. For each cohort build the cumulative gross margin by month_offset (0 = signup month) through the latest month with any payment in the dataset, carrying the cumulative value across months without payments. payback_month_offset is the smallest offset at which cumulative gross margin >= acquisition_spend; NULL if not reached within the observed months. Output columns: cohort_month (DATE), channel (STRING), cohort_size (INT64), acquisition_spend (FLOAT64), cac (FLOAT64, 2 decimals), payback_month_offset (INT64). Sort by cohort_month, channel.",
+  "schema": {
+    "users": {
+      "columns": {
+        "user_id": {"type": "INT64", "description": "Primary key"},
+        "signup_ts": {"type": "TIMESTAMP", "description": "UTC signup timestamp"},
+        "channel": {"type": "STRING", "description": "Acquisition channel: paid_search, organic, ..."}
+      }
+    },
+    "payments": {
+      "columns": {
+        "payment_id": {"type": "INT64", "description": "Primary key"},
+        "user_id": {"type": "INT64", "description": "Foreign key to users"},
+        "paid_ts": {"type": "TIMESTAMP", "description": "UTC payment timestamp"},
+        "amount": {"type": "FLOAT64", "description": "Payment amount"},
+        "status": {"type": "STRING", "description": "success, failed"}
+      }
+    },
+    "channel_spend": {
+      "columns": {
+        "spend_month": {"type": "DATE", "description": "First day of the month"},
+        "channel": {"type": "STRING", "description": "Acquisition channel; organic has no rows"},
+        "spend": {"type": "FLOAT64", "description": "Marketing spend for the month"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "users", "rows": [
+      {"user_id": 1, "signup_ts": "2025-01-05T10:00:00Z", "channel": "paid_search"},
+      {"user_id": 2, "signup_ts": "2025-01-20T10:00:00Z", "channel": "paid_search"},
+      {"user_id": 3, "signup_ts": "2025-01-22T10:00:00Z", "channel": "organic"},
+      {"user_id": 4, "signup_ts": "2025-02-03T10:00:00Z", "channel": "paid_search"}
+    ]},
+    {"table": "payments", "rows": [
+      {"payment_id": 1, "user_id": 1, "paid_ts": "2025-01-05T10:05:00Z", "amount": 30.0, "status": "success"},
+      {"payment_id": 2, "user_id": 2, "paid_ts": "2025-02-20T10:00:00Z", "amount": 40.0, "status": "success"},
+      {"payment_id": 3, "user_id": 1, "paid_ts": "2025-03-05T10:00:00Z", "amount": 50.0, "status": "success"},
+      {"payment_id": 4, "user_id": 3, "paid_ts": "2025-02-22T10:00:00Z", "amount": 10.0, "status": "success"},
+      {"payment_id": 5, "user_id": 4, "paid_ts": "2025-02-03T10:05:00Z", "amount": 20.0, "status": "success"},
+      {"payment_id": 6, "user_id": 4, "paid_ts": "2025-03-03T10:05:00Z", "amount": 500.0, "status": "failed"}
+    ]},
+    {"table": "channel_spend", "rows": [
+      {"spend_month": "2025-01-01", "channel": "paid_search", "spend": 50.0},
+      {"spend_month": "2025-02-01", "channel": "paid_search", "spend": 80.0}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"cohort_month": "2025-01-01", "channel": "organic", "cohort_size": 1, "acquisition_spend": 0.0, "cac": 0.0, "payback_month_offset": 0},
+    {"cohort_month": "2025-01-01", "channel": "paid_search", "cohort_size": 2, "acquisition_spend": 50.0, "cac": 25.0, "payback_month_offset": 2},
+    {"cohort_month": "2025-02-01", "channel": "paid_search", "cohort_size": 1, "acquisition_spend": 80.0, "cac": 80.0, "payback_month_offset": null}
+  ],
+  "edge_cases": [
+    "January paid_search: cumulative margin is 15, 35, 60 at offsets 0, 1, 2, so payback is reached at offset 2",
+    "Organic cohort has no spend row: spend 0 and payback at offset 0 even though its first payment is in offset 1",
+    "February paid_search cohort does not reach payback in the observed window (NULL), and the failed 500 payment must not count",
+    "Spend must be joined once per cohort, not once per user or per payment"
+  ],
+  "common_failure_modes": [
+    "FM1: Joining channel_spend at user or payment grain multiplies spend (and CAC) by cohort size or payment count",
+    "FM3: Comparing cumulative REVENUE (not 50% margin) with spend reports payback one month too early (offset 1)",
+    "FM2: Cumulative sum over only the offsets that contain payments skips empty months and can report the wrong payback offset; MIN over an empty set must stay NULL rather than default to 0"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "task_id": "bq_044",
+  "category": "bigquery_sql",
+  "description": "Compute a funnel report whose steps are defined in a configuration table rather than hard-coded. funnel_steps lists the ordered steps. A user counts at step N only if they have at least one event for step N AND counted at every earlier step (membership funnel; timestamps are not compared). Every configured step must appear even when no user reached it. Output columns: step_order (INT64), step_name (STRING), users (INT64), pct_of_previous (FLOAT64, 4 decimals; NULL for step 1 and when the previous step has 0 users), pct_of_first (FLOAT64, 4 decimals). Sort by step_order.",
+  "schema": {
+    "funnel_steps": {
+      "columns": {
+        "step_order": {"type": "INT64", "description": "1-based position in the funnel"},
+        "step_name": {"type": "STRING", "description": "Event name that marks the step"}
+      }
+    },
+    "user_events": {
+      "columns": {
+        "event_id": {"type": "INT64", "description": "Primary key"},
+        "user_id": {"type": "INT64", "description": "User identifier"},
+        "event_name": {"type": "STRING", "description": "Event name; may include names that are not funnel steps"},
+        "event_ts": {"type": "TIMESTAMP", "description": "UTC event timestamp"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "funnel_steps", "rows": [
+      {"step_order": 1, "step_name": "visit"},
+      {"step_order": 2, "step_name": "signup"},
+      {"step_order": 3, "step_name": "trial_start"},
+      {"step_order": 4, "step_name": "paid"}
+    ]},
+    {"table": "user_events", "rows": [
+      {"event_id": 1, "user_id": 1, "event_name": "visit", "event_ts": "2025-05-01T10:00:00Z"},
+      {"event_id": 2, "user_id": 1, "event_name": "signup", "event_ts": "2025-05-01T10:05:00Z"},
+      {"event_id": 3, "user_id": 1, "event_name": "trial_start", "event_ts": "2025-05-02T10:00:00Z"},
+      {"event_id": 4, "user_id": 2, "event_name": "visit", "event_ts": "2025-05-01T11:00:00Z"},
+      {"event_id": 5, "user_id": 2, "event_name": "signup", "event_ts": "2025-05-01T11:05:00Z"},
+      {"event_id": 6, "user_id": 3, "event_name": "visit", "event_ts": "2025-05-01T12:00:00Z"},
+      {"event_id": 7, "user_id": 4, "event_name": "visit", "event_ts": "2025-05-01T13:00:00Z"},
+      {"event_id": 8, "user_id": 5, "event_name": "trial_start", "event_ts": "2025-05-01T14:00:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"step_order": 1, "step_name": "visit", "users": 4, "pct_of_previous": null, "pct_of_first": 1.0},
+    {"step_order": 2, "step_name": "signup", "users": 2, "pct_of_previous": 0.5, "pct_of_first": 0.5},
+    {"step_order": 3, "step_name": "trial_start", "users": 1, "pct_of_previous": 0.5, "pct_of_first": 0.25},
+    {"step_order": 4, "step_name": "paid", "users": 0, "pct_of_previous": 0.0, "pct_of_first": 0.0}
+  ],
+  "edge_cases": [
+    "User 5 has trial_start without visit/signup and must not count at step 3",
+    "Step 'paid' has no events but must be reported with 0 users",
+    "Events whose name is not a configured step are ignored",
+    "Adding a fifth step to funnel_steps must work without changing the query"
+  ],
+  "common_failure_modes": [
+    "FM3: COUNT(DISTINCT user_id) per event name counts users who skipped earlier steps (trial_start = 2)",
+    "FM1: INNER JOIN from steps to events drops steps with no events",
+    "FM7: Division without SAFE_DIVIDE fails when a previous step has zero users"
+  ]
+}

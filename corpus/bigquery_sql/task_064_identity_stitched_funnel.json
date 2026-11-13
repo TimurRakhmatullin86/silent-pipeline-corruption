@@ -1,0 +1,53 @@
+{
+  "task_id": "bq_064",
+  "category": "bigquery_sql",
+  "description": "Build a person-level, cross-device funnel visit -> signup -> purchase. Events are recorded per device_id. identity_map links devices to known users; a person is the linked user_id when the device is linked (links apply retroactively to all events of the device), otherwise the device itself is treated as its own anonymous person. If a device has several links, use the one with the latest linked_at. A person reaches signup only if the signup happens at or after their first visit, and reaches purchase only if the purchase happens at or after that qualifying signup, across any of their devices. Output a single row. Output columns: visitors (INT64), signed_up (INT64), purchased (INT64), visit_to_purchase_rate (FLOAT64, 4 decimals).",
+  "schema": {
+    "device_events": {
+      "columns": {
+        "event_id": {"type": "INT64", "description": "Primary key"},
+        "device_id": {"type": "STRING", "description": "Device / browser identifier"},
+        "event_name": {"type": "STRING", "description": "visit, signup, purchase"},
+        "event_ts": {"type": "TIMESTAMP", "description": "UTC event timestamp"}
+      }
+    },
+    "identity_map": {
+      "columns": {
+        "device_id": {"type": "STRING", "description": "Device identifier; can be linked more than once (shared device)"},
+        "user_id": {"type": "INT64", "description": "Known user the device was linked to at login"},
+        "linked_at": {"type": "TIMESTAMP", "description": "UTC time of the link"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "device_events", "rows": [
+      {"event_id": 1, "device_id": "A", "event_name": "visit", "event_ts": "2025-08-01T10:00:00Z"},
+      {"event_id": 2, "device_id": "B", "event_name": "signup", "event_ts": "2025-08-02T10:00:00Z"},
+      {"event_id": 3, "device_id": "B", "event_name": "purchase", "event_ts": "2025-08-03T10:00:00Z"},
+      {"event_id": 4, "device_id": "C", "event_name": "visit", "event_ts": "2025-08-01T11:00:00Z"},
+      {"event_id": 5, "device_id": "D", "event_name": "visit", "event_ts": "2025-08-01T12:00:00Z"},
+      {"event_id": 6, "device_id": "D", "event_name": "signup", "event_ts": "2025-08-01T12:05:00Z"},
+      {"event_id": 7, "device_id": "E", "event_name": "visit", "event_ts": "2025-08-04T09:00:00Z"}
+    ]},
+    {"table": "identity_map", "rows": [
+      {"device_id": "A", "user_id": 1, "linked_at": "2025-08-02T09:00:00Z"},
+      {"device_id": "B", "user_id": 1, "linked_at": "2025-08-02T10:00:00Z"},
+      {"device_id": "D", "user_id": 2, "linked_at": "2025-08-01T12:05:00Z"},
+      {"device_id": "E", "user_id": 1, "linked_at": "2025-08-04T09:01:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"visitors": 3, "signed_up": 2, "purchased": 1, "visit_to_purchase_rate": 0.3333}
+  ],
+  "edge_cases": [
+    "User 1 visits on device A, signs up and purchases on device B, and visits again on device E: one person, one conversion",
+    "Device C is never linked and counts as one anonymous visitor",
+    "Events that happened before the link (device A's visit) still belong to the linked user",
+    "A device linked to two users over time must resolve to exactly one user (latest link)"
+  ],
+  "common_failure_modes": [
+    "FM3: Device-level funnel reports 4 visitors and loses user 1's conversion because visit and purchase are on different devices",
+    "FM1: Joining events to identity_map without deduplicating links fans out events of shared devices",
+    "FM5: INNER JOIN to identity_map or grouping by a NULL user_id drops or merges all anonymous devices into one person"
+  ]
+}

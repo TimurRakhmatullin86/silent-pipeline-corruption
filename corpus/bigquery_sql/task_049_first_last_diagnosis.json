@@ -1,0 +1,48 @@
+{
+  "task_id": "bq_049",
+  "category": "bigquery_sql",
+  "description": "For each patient in the healthcare records system, return the first and the last recorded diagnosis code across their visits ordered by visit_ts (ties by visit_id), ignoring visits with a NULL diagnosis_code, together with the total number of visits (including those without a diagnosis) and a flag indicating whether the diagnosis changed. Patients whose visits all lack a diagnosis have NULL first/last and diagnosis_changed = FALSE. Exclude deceased patients. Output columns: patient_id (INT64), first_diagnosis (STRING), last_diagnosis (STRING), visit_count (INT64), diagnosis_changed (BOOL). One row per patient, sorted by patient_id.",
+  "schema": {
+    "visits": {
+      "columns": {
+        "visit_id": {"type": "INT64", "description": "Primary key"},
+        "patient_id": {"type": "INT64", "description": "Foreign key to patients"},
+        "visit_ts": {"type": "TIMESTAMP", "description": "UTC visit timestamp"},
+        "diagnosis_code": {"type": "STRING", "description": "Diagnosis code; NULL for routine check-ups"}
+      }
+    },
+    "patients": {
+      "columns": {
+        "patient_id": {"type": "INT64", "description": "Primary key"},
+        "is_deceased": {"type": "BOOL", "description": "Deceased flag"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "visits", "rows": [
+      {"visit_id": 1, "patient_id": 1, "visit_ts": "2025-01-01T09:00:00Z", "diagnosis_code": "A10"},
+      {"visit_id": 2, "patient_id": 1, "visit_ts": "2025-02-01T09:00:00Z", "diagnosis_code": "B20"},
+      {"visit_id": 3, "patient_id": 1, "visit_ts": "2025-03-01T09:00:00Z", "diagnosis_code": null},
+      {"visit_id": 4, "patient_id": 2, "visit_ts": "2025-01-05T09:00:00Z", "diagnosis_code": "C30"}
+    ]},
+    {"table": "patients", "rows": [
+      {"patient_id": 1, "is_deceased": false},
+      {"patient_id": 2, "is_deceased": false}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"patient_id": 1, "first_diagnosis": "A10", "last_diagnosis": "B20", "visit_count": 3, "diagnosis_changed": true},
+    {"patient_id": 2, "first_diagnosis": "C30", "last_diagnosis": "C30", "visit_count": 1, "diagnosis_changed": false}
+  ],
+  "edge_cases": [
+    "Latest visit has NULL diagnosis; last_diagnosis must be the last non-NULL value (B20)",
+    "visit_count includes visits without a diagnosis",
+    "Patient with a single visit has first = last and diagnosis_changed = FALSE",
+    "Patient with only NULL diagnoses yields NULLs and diagnosis_changed = FALSE (not NULL)"
+  ],
+  "common_failure_modes": [
+    "FM4: LAST_VALUE() with the default frame (UNBOUNDED PRECEDING to CURRENT ROW) returns the current row's value, not the partition's last",
+    "FM5: Without IGNORE NULLS the last diagnosis is NULL for patient 1",
+    "FM3: Selecting window results without DISTINCT/GROUP BY returns one row per visit instead of per patient"
+  ]
+}

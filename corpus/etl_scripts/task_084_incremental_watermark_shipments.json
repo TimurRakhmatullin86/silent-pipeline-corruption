@@ -1,0 +1,77 @@
+{
+  "task_id": "etl_084",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for logistics_co that incrementally loads shipment status updates. The script should: (1) read the watermark (last processed updated_at, UTC) from a JSON state file, (2) read the source CSV extract and keep only rows with updated_at strictly greater than the watermark after converting updated_at to UTC, (3) convert weight_lb to weight_kg (divide by 2.20462, round to 2 decimals), (4) normalize status to lower case with whitespace trimmed, (5) upsert into the target Parquet dataset keyed on shipment_id, (6) advance the watermark to the maximum updated_at actually loaded. For the sample, the watermark is 2025-06-01T00:00:00Z.",
+  "schema": {
+    "source_columns": {
+      "shipment_id": "string",
+      "updated_at": "string (ISO 8601 with offset)",
+      "weight_lb": "float",
+      "status": "string"
+    },
+    "target_columns": {
+      "shipment_id": "string",
+      "updated_at": "datetime64[ns, UTC]",
+      "weight_kg": "float64",
+      "status": "string (lower case)"
+    }
+  },
+  "test_data_sample": [
+    {
+      "shipment_id": "s1",
+      "updated_at": "2025-05-31T23:59:59Z",
+      "weight_lb": 11.0231,
+      "status": "IN_TRANSIT"
+    },
+    {
+      "shipment_id": "s2",
+      "updated_at": "2025-06-01T00:00:00Z",
+      "weight_lb": 11.0231,
+      "status": "IN_TRANSIT"
+    },
+    {
+      "shipment_id": "s3",
+      "updated_at": "2025-06-01T02:00:00+02:00",
+      "weight_lb": 11.0231,
+      "status": "IN_TRANSIT"
+    },
+    {
+      "shipment_id": "s4",
+      "updated_at": "2025-06-01T08:30:00-05:00",
+      "weight_lb": 22.0462,
+      "status": "DELIVERED "
+    },
+    {
+      "shipment_id": "s5",
+      "updated_at": "2025-06-01T00:00:01Z",
+      "weight_lb": 4.40924,
+      "status": "out_for_delivery"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "shipment_id": "s4",
+      "updated_at": "2025-06-01T13:30:00Z",
+      "weight_kg": 10.0,
+      "status": "delivered"
+    },
+    {
+      "shipment_id": "s5",
+      "updated_at": "2025-06-01T00:00:01Z",
+      "weight_kg": 2.0,
+      "status": "out_for_delivery"
+    }
+  ],
+  "edge_cases": [
+    "s3 has a +02:00 offset and equals the watermark exactly once converted to UTC; it must be excluded",
+    "Comparison is strict (>): s2 at the watermark was loaded by the previous run",
+    "New watermark must be the max loaded updated_at (2025-06-01T13:30:00Z), not the script's run time",
+    "If no rows qualify, the watermark must remain unchanged and the target untouched",
+    "Watermark must be persisted only after the target write succeeds"
+  ],
+  "common_failure_modes": [
+    "FM2: Comparing ISO strings lexically or dropping offsets includes s3 and misorders s4",
+    "FM2: Setting the watermark to now() skips rows committed upstream with earlier timestamps",
+    "FM7: No check that the target write succeeded before advancing the watermark"
+  ]
+}

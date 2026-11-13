@@ -1,0 +1,55 @@
+{
+  "task_id": "bq_024",
+  "category": "bigquery_sql",
+  "description": "Build a four-step checkout funnel by device: view_cart -> begin_checkout -> add_payment -> purchase. A session reaches step N only if it reached step N-1 and has a step-N event with a timestamp greater than or equal to the timestamp at which it first reached step N-1 (strict ordered funnel). Count distinct sessions per device at each step. Output columns: device (STRING), view_cart (INT64), begin_checkout (INT64), add_payment (INT64), purchase (INT64).",
+  "schema": {
+    "sessions": {
+      "columns": {
+        "session_id": {"type": "STRING", "description": "Primary key"},
+        "user_id": {"type": "INT64", "description": "User identifier; NULL for anonymous"},
+        "device": {"type": "STRING", "description": "mobile, desktop, tablet"}
+      }
+    },
+    "checkout_events": {
+      "columns": {
+        "event_id": {"type": "INT64", "description": "Primary key"},
+        "session_id": {"type": "STRING", "description": "Foreign key to sessions"},
+        "step": {"type": "STRING", "description": "view_cart, begin_checkout, add_payment, purchase"},
+        "event_ts": {"type": "TIMESTAMP", "description": "UTC event timestamp"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "sessions", "rows": [
+      {"session_id": "s1", "user_id": 1, "device": "mobile"},
+      {"session_id": "s2", "user_id": 2, "device": "mobile"},
+      {"session_id": "s3", "user_id": null, "device": "desktop"},
+      {"session_id": "s4", "user_id": 4, "device": "mobile"}
+    ]},
+    {"table": "checkout_events", "rows": [
+      {"event_id": 1, "session_id": "s1", "step": "view_cart", "event_ts": "2025-05-01T10:00:00Z"},
+      {"event_id": 2, "session_id": "s1", "step": "begin_checkout", "event_ts": "2025-05-01T10:01:00Z"},
+      {"event_id": 3, "session_id": "s1", "step": "add_payment", "event_ts": "2025-05-01T10:02:00Z"},
+      {"event_id": 4, "session_id": "s1", "step": "purchase", "event_ts": "2025-05-01T10:03:00Z"},
+      {"event_id": 5, "session_id": "s2", "step": "view_cart", "event_ts": "2025-05-01T11:00:00Z"},
+      {"event_id": 6, "session_id": "s2", "step": "begin_checkout", "event_ts": "2025-05-01T11:05:00Z"},
+      {"event_id": 7, "session_id": "s3", "step": "view_cart", "event_ts": "2025-05-01T12:00:00Z"},
+      {"event_id": 8, "session_id": "s3", "step": "purchase", "event_ts": "2025-05-01T12:04:00Z"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"device": "desktop", "view_cart": 1, "begin_checkout": 0, "add_payment": 0, "purchase": 0},
+    {"device": "mobile", "view_cart": 2, "begin_checkout": 2, "add_payment": 1, "purchase": 1}
+  ],
+  "edge_cases": [
+    "Session s3 skips intermediate steps, so its purchase does not count in the strict funnel",
+    "Session s4 has no checkout events and contributes to no step",
+    "Repeated events for the same step count the session once",
+    "Each step count must be less than or equal to the previous step count"
+  ],
+  "common_failure_modes": [
+    "FM3: COUNTIF(step = 'purchase') per device counts sessions that skipped steps and counts repeated events",
+    "FM1: Chained self-joins without deduplicating per session fan out when a step repeats",
+    "FM7: No monotonicity check lets later steps exceed earlier ones"
+  ]
+}

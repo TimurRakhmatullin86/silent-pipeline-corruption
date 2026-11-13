@@ -1,0 +1,72 @@
+{
+  "task_id": "etl_115",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for saas_metrics that computes daily active users (DAU) and rolling 7-day active users (WAU) for the reporting range 2025-01-01 to 2025-01-04 inclusive. The script should: (1) derive activity_date from event_ts in UTC, (2) compute DAU as the number of distinct users per day, (3) compute WAU for each day as the number of distinct users active in the 7-day window ending on that day (inclusive), (4) emit one row for every date in the reporting range, including days with no events.",
+  "schema": {
+    "source_columns": {
+      "user_id": "string",
+      "event_ts": "string (ISO 8601)"
+    },
+    "target_columns": {
+      "activity_date": "date",
+      "dau": "int64",
+      "wau": "int64"
+    }
+  },
+  "test_data_sample": [
+    {
+      "user_id": "u1",
+      "event_ts": "2025-01-01T08:00:00Z"
+    },
+    {
+      "user_id": "u2",
+      "event_ts": "2025-01-01T09:00:00Z"
+    },
+    {
+      "user_id": "u1",
+      "event_ts": "2025-01-02T08:00:00Z"
+    },
+    {
+      "user_id": "u1",
+      "event_ts": "2025-01-02T18:00:00Z"
+    },
+    {
+      "user_id": "u3",
+      "event_ts": "2025-01-03T23:59:59Z"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "activity_date": "2025-01-01",
+      "dau": 2,
+      "wau": 2
+    },
+    {
+      "activity_date": "2025-01-02",
+      "dau": 1,
+      "wau": 2
+    },
+    {
+      "activity_date": "2025-01-03",
+      "dau": 1,
+      "wau": 3
+    },
+    {
+      "activity_date": "2025-01-04",
+      "dau": 0,
+      "wau": 3
+    }
+  ],
+  "edge_cases": [
+    "Distinct counts are not additive: a rolling sum of DAU gives WAU = 2, 3, 4, 4 instead of 2, 2, 3, 3",
+    "u1 has two events on 2025-01-02 and counts once",
+    "2025-01-04 has no events and must still appear with dau 0 and wau 3",
+    "The 7-day window is [day - 6, day] inclusive",
+    "With real data preceding the reporting range, the 6 days before the first report date must be read to compute its WAU"
+  ],
+  "common_failure_modes": [
+    "FM3: Rolling sum of daily distinct counts used as the weekly distinct count",
+    "FM3: Days without events missing from the output, breaking downstream time series",
+    "FM2: Window off by one day (8-day or 6-day window)"
+  ]
+}

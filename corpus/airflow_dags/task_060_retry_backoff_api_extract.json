@@ -1,0 +1,33 @@
+{
+  "task_id": "af_060",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for travel_booking that extracts reservations from a rate-limited partner API and loads them into Snowflake. The DAG should: (1) extract pages of reservations with a TaskFlow task that retries up to 5 times with exponential backoff capped at 30 minutes, (2) distinguish retryable errors (HTTP 429, 5xx, timeouts) from non-retryable errors (401, 403, 400) and raise AirflowFailException for the latter, (3) write the extracted pages to a stage path keyed by run_id and try_number-independent filenames, (4) COPY into Snowflake, (5) on final failure invoke an on_failure_callback that posts to the incident channel.",
+  "schema": {
+    "source": "https://partners.travel-booking.example/api/reservations?updated_since={{ data_interval_start }}&updated_before={{ data_interval_end }}",
+    "stage": "@raw.reservations_stage/{{ ds }}/",
+    "target": "raw.reservations"
+  },
+  "expected_behavior": {
+    "schedule": "0 */4 * * *",
+    "catchup": false,
+    "retries": 5,
+    "retry_delay": "0:01:00",
+    "retry_exponential_backoff": true,
+    "max_retry_delay": "0:30:00",
+    "execution_timeout": "1:00:00",
+    "non_retryable_exception": "AirflowFailException",
+    "on_failure_callback": "post_incident"
+  },
+  "edge_cases": [
+    "A retry after a partial extract must overwrite the stage files, not add a second set with a different name",
+    "401/403 must fail immediately without consuming retries",
+    "on_failure_callback fires only after retries are exhausted; on_retry_callback is separate",
+    "Respect the Retry-After header on 429 when it exceeds the computed backoff",
+    "The extract window must be half-open [data_interval_start, data_interval_end)"
+  ],
+  "common_failure_modes": [
+    "FM6: Stage file names include try_number or a timestamp, so a retry loads both partial and complete extracts",
+    "FM6: Catching all exceptions and returning normally marks the task successful with partial data",
+    "FM2: Inclusive upper bound re-extracts boundary records in the next run"
+  ]
+}

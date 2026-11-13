@@ -1,0 +1,76 @@
+{
+  "task_id": "bq_038",
+  "category": "bigquery_sql",
+  "description": "Compute monthly seller payouts for the ecommerce marketplace. GMV per item = price * quantity for items of orders with status = 'completed'. Commission is GMV multiplied by the commission rate of the seller's tier that was effective on the order date (effective_from inclusive, effective_to exclusive, NULL = open-ended). Payout = GMV - commission. Output columns: seller_id (INT64), month (DATE), gmv (FLOAT64), commission (FLOAT64), payout (FLOAT64), all amounts rounded to 2 decimals. Sort by seller_id, month.",
+  "schema": {
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "order_date": {"type": "DATE", "description": "Order date (UTC)"},
+        "status": {"type": "STRING", "description": "completed, cancelled"}
+      }
+    },
+    "order_items": {
+      "columns": {
+        "item_id": {"type": "INT64", "description": "Primary key"},
+        "order_id": {"type": "INT64", "description": "Foreign key to orders"},
+        "seller_id": {"type": "INT64", "description": "Foreign key to sellers"},
+        "price": {"type": "FLOAT64", "description": "Unit price"},
+        "quantity": {"type": "INT64", "description": "Units"}
+      }
+    },
+    "sellers": {
+      "columns": {
+        "seller_id": {"type": "INT64", "description": "Primary key"},
+        "commission_tier": {"type": "STRING", "description": "Tier code, e.g. A or B"}
+      }
+    },
+    "commission_rates": {
+      "columns": {
+        "commission_tier": {"type": "STRING", "description": "Tier code"},
+        "rate": {"type": "FLOAT64", "description": "Commission fraction (0.10 = 10%)"},
+        "effective_from": {"type": "DATE", "description": "Inclusive start"},
+        "effective_to": {"type": "DATE", "description": "Exclusive end; NULL when current"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "orders", "rows": [
+      {"order_id": 1, "order_date": "2025-01-31", "status": "completed"},
+      {"order_id": 2, "order_date": "2025-02-01", "status": "completed"},
+      {"order_id": 3, "order_date": "2025-01-15", "status": "completed"},
+      {"order_id": 4, "order_date": "2025-01-20", "status": "cancelled"}
+    ]},
+    {"table": "order_items", "rows": [
+      {"item_id": 1, "order_id": 1, "seller_id": 1, "price": 100.0, "quantity": 1},
+      {"item_id": 2, "order_id": 2, "seller_id": 1, "price": 50.0, "quantity": 2},
+      {"item_id": 3, "order_id": 3, "seller_id": 2, "price": 200.0, "quantity": 1},
+      {"item_id": 4, "order_id": 4, "seller_id": 2, "price": 999.0, "quantity": 1}
+    ]},
+    {"table": "sellers", "rows": [
+      {"seller_id": 1, "commission_tier": "A"},
+      {"seller_id": 2, "commission_tier": "B"}
+    ]},
+    {"table": "commission_rates", "rows": [
+      {"commission_tier": "A", "rate": 0.10, "effective_from": "2025-01-01", "effective_to": "2025-02-01"},
+      {"commission_tier": "A", "rate": 0.12, "effective_from": "2025-02-01", "effective_to": null},
+      {"commission_tier": "B", "rate": 0.20, "effective_from": "2024-01-01", "effective_to": null}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"seller_id": 1, "month": "2025-01-01", "gmv": 100.0, "commission": 10.0, "payout": 90.0},
+    {"seller_id": 1, "month": "2025-02-01", "gmv": 100.0, "commission": 12.0, "payout": 88.0},
+    {"seller_id": 2, "month": "2025-01-01", "gmv": 200.0, "commission": 40.0, "payout": 160.0}
+  ],
+  "edge_cases": [
+    "Rate change on 2025-02-01: order on 2025-01-31 uses 10%, order on 2025-02-01 uses 12%",
+    "Cancelled orders contribute nothing",
+    "One order can contain items from several sellers",
+    "A seller whose tier has no effective rate for a date must be surfaced (NULL commission), not silently dropped"
+  ],
+  "common_failure_modes": [
+    "FM1: Joining commission_rates on tier only applies both tier-A rates to every item, doubling GMV",
+    "FM2: Inclusive comparison on effective_to applies two rates on the boundary date",
+    "FM5: order_date < effective_to is NULL for open-ended rates and removes all current-rate rows"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "task_id": "af_061",
+  "category": "airflow_dag",
+  "description": "Create an Airflow 2.7+ DAG for genomics_lab that spins up an ephemeral EMR cluster, runs three Spark steps, and always terminates the cluster. Use setup/teardown tasks: 'create_cluster' as setup and 'terminate_cluster' as teardown, so that the cluster is terminated whether the steps succeed or fail, and the DAG run state reflects the work tasks, not the teardown. The three steps run sequentially: align, call_variants, annotate. If 'call_variants' fails, 'annotate' must not run, the cluster must still be terminated, and the DAG run must be marked failed.",
+  "schema": {
+    "source": "s3://genomics-lab-seq/runs/{{ ds }}/fastq/",
+    "target": "s3://genomics-lab-results/runs/{{ ds }}/annotated/"
+  },
+  "expected_behavior": {
+    "schedule": "@daily",
+    "catchup": false,
+    "setup_task": "create_cluster",
+    "teardown_task": "terminate_cluster",
+    "teardown_on_failure_fail_dagrun": false,
+    "step_retries": 1,
+    "dagrun_state_on_step_failure": "failed",
+    "cluster_id_passing": "XCom from create_cluster"
+  },
+  "edge_cases": [
+    "Implementing cleanup as a plain task with trigger_rule='all_done' as the only leaf makes the DAG run succeed even when a step failed",
+    "If create_cluster itself fails there is no cluster id; terminate_cluster must handle the missing XCom without raising",
+    "Teardown must be scoped to the work tasks (setup >> work >> teardown with as_teardown(setups=...)) so clearing a step re-runs setup",
+    "Step retries must reuse the same cluster rather than create a new one"
+  ],
+  "common_failure_modes": [
+    "FM6: all_done cleanup leaf masks upstream failure and the DAG run is reported as success",
+    "FM6: Default all_success on terminate_cluster leaks a running cluster after any step failure",
+    "FM7: No check that the annotated output exists before reporting success"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "task_id": "af_050",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for logistics_co that refreshes the route_performance table using either a full rebuild or an incremental load. The DAG should use @task.branch to choose: full rebuild on the first day of each month or when the Airflow Variable route_perf_force_full is 'true'; otherwise incremental. Both branches converge on a shared 'update_statistics' task followed by 'notify'. After a forced full rebuild the Variable must be reset to 'false'. The DAG runs daily at 02:00 UTC.",
+  "schema": {
+    "source": "ops.route_events",
+    "target": "analytics.route_performance",
+    "variable": "route_perf_force_full"
+  },
+  "expected_behavior": {
+    "schedule": "0 2 * * *",
+    "catchup": false,
+    "branch_task_ids": [
+      "full_rebuild",
+      "incremental_load"
+    ],
+    "full_condition": "data_interval_start.day == 1 or Variable.get('route_perf_force_full') == 'true'",
+    "join_trigger_rule": "none_failed_min_one_success",
+    "retries": 2
+  },
+  "edge_cases": [
+    "The join task after the branch must not use the default all_success trigger rule, or it will always be skipped",
+    "Day-of-month check must use the logical date, not today's date, so that reruns of old dates choose the same branch",
+    "Variable must be read inside the task at runtime, not at DAG parse time",
+    "Variable reset must only happen on the forced-full path and only after the rebuild succeeds",
+    "Incremental window must be [data_interval_start, data_interval_end)"
+  ],
+  "common_failure_modes": [
+    "FM6: Join task with default trigger_rule is skipped because one branch is always skipped",
+    "FM6: Variable.get at module top level evaluates on every scheduler parse and freezes the branch decision",
+    "FM2: Using datetime.now().day causes a rerun of the 1st to take the incremental path"
+  ]
+}

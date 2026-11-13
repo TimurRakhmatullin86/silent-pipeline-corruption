@@ -1,0 +1,63 @@
+{
+  "task_id": "bq_032",
+  "category": "bigquery_sql",
+  "description": "Compute return on ad spend (ROAS) per campaign for March 2025 on the ad platform. spend = sum of daily spend rows in March; revenue = sum of conversion revenue with conversion_ts in March (UTC); roas = revenue / spend. Campaigns with spend but no conversions have revenue = 0 and roas = 0. Campaigns with conversions but zero or missing spend have spend = 0 and roas = NULL. Every campaign that has spend or conversions in March appears exactly once. Output columns: campaign_name (STRING), spend (FLOAT64), revenue (FLOAT64), conversions (INT64), roas (FLOAT64, 2 decimals). Sort by campaign_name.",
+  "schema": {
+    "campaigns": {
+      "columns": {
+        "campaign_id": {"type": "INT64", "description": "Primary key"},
+        "campaign_name": {"type": "STRING", "description": "Campaign name"},
+        "advertiser_id": {"type": "INT64", "description": "Owning advertiser"}
+      }
+    },
+    "ad_spend": {
+      "columns": {
+        "campaign_id": {"type": "INT64", "description": "Foreign key to campaigns"},
+        "spend_date": {"type": "DATE", "description": "Day of spend; one row per campaign per day with spend"},
+        "spend": {"type": "FLOAT64", "description": "Spend in USD"}
+      }
+    },
+    "conversions": {
+      "columns": {
+        "conversion_id": {"type": "INT64", "description": "Primary key"},
+        "campaign_id": {"type": "INT64", "description": "Attributed campaign"},
+        "conversion_ts": {"type": "TIMESTAMP", "description": "UTC conversion timestamp"},
+        "revenue": {"type": "FLOAT64", "description": "Revenue attributed to the conversion"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "campaigns", "rows": [
+      {"campaign_id": 1, "campaign_name": "Spring Sale", "advertiser_id": 10},
+      {"campaign_id": 2, "campaign_name": "Brand Awareness", "advertiser_id": 10},
+      {"campaign_id": 3, "campaign_name": "Organic Promo", "advertiser_id": 11}
+    ]},
+    {"table": "ad_spend", "rows": [
+      {"campaign_id": 1, "spend_date": "2025-03-01", "spend": 100.0},
+      {"campaign_id": 1, "spend_date": "2025-03-02", "spend": 100.0},
+      {"campaign_id": 2, "spend_date": "2025-03-01", "spend": 50.0}
+    ]},
+    {"table": "conversions", "rows": [
+      {"conversion_id": 1, "campaign_id": 1, "conversion_ts": "2025-03-01T12:00:00Z", "revenue": 150.0},
+      {"conversion_id": 2, "campaign_id": 1, "conversion_ts": "2025-03-02T12:00:00Z", "revenue": 150.0},
+      {"conversion_id": 3, "campaign_id": 1, "conversion_ts": "2025-03-05T12:00:00Z", "revenue": 100.0},
+      {"conversion_id": 4, "campaign_id": 3, "conversion_ts": "2025-03-09T12:00:00Z", "revenue": 80.0}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"campaign_name": "Brand Awareness", "spend": 50.0, "revenue": 0.0, "conversions": 0, "roas": 0.0},
+    {"campaign_name": "Organic Promo", "spend": 0.0, "revenue": 80.0, "conversions": 1, "roas": null},
+    {"campaign_name": "Spring Sale", "spend": 200.0, "revenue": 400.0, "conversions": 3, "roas": 2.0}
+  ],
+  "edge_cases": [
+    "Campaign with 2 spend rows and 3 conversions must not be cross-multiplied",
+    "Conversion on a day without spend still counts toward the month",
+    "Zero spend must produce NULL roas rather than a division error",
+    "Campaigns with neither spend nor conversions in March are omitted"
+  ],
+  "common_failure_modes": [
+    "FM1: Joining ad_spend and conversions directly on campaign_id creates a 2 x 3 fan-out (spend 600, revenue 800)",
+    "FM1: Joining on (campaign_id, date) drops conversions that occur on days without spend",
+    "FM7: Plain division instead of SAFE_DIVIDE fails for campaigns with zero spend"
+  ]
+}

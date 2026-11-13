@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_033",
+  "category": "bigquery_sql",
+  "description": "For every session in the gaming analytics platform, compute the start time of the same player's previous session, the number of whole days between them (difference of UTC calendar dates), and a reactivation flag that is TRUE when days_since_prev > 30. The first session of a player has NULL prev_start_ts, NULL days_since_prev and is_reactivation = FALSE. Exclude banned players. Output columns: session_id (INT64), player_id (INT64), start_ts (TIMESTAMP), prev_start_ts (TIMESTAMP), days_since_prev (INT64), is_reactivation (BOOL). Sort by player_id, start_ts.",
+  "schema": {
+    "play_sessions": {
+      "columns": {
+        "session_id": {"type": "INT64", "description": "Primary key"},
+        "player_id": {"type": "INT64", "description": "Foreign key to players"},
+        "start_ts": {"type": "TIMESTAMP", "description": "UTC session start"},
+        "duration_sec": {"type": "INT64", "description": "Session length in seconds"}
+      }
+    },
+    "players": {
+      "columns": {
+        "player_id": {"type": "INT64", "description": "Primary key"},
+        "is_banned": {"type": "BOOL", "description": "TRUE if the account is banned"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "play_sessions", "rows": [
+      {"session_id": 1, "player_id": 1, "start_ts": "2025-01-01T20:00:00Z", "duration_sec": 600},
+      {"session_id": 2, "player_id": 1, "start_ts": "2025-01-15T08:00:00Z", "duration_sec": 900},
+      {"session_id": 3, "player_id": 1, "start_ts": "2025-03-01T09:00:00Z", "duration_sec": 300},
+      {"session_id": 4, "player_id": 2, "start_ts": "2025-02-10T10:00:00Z", "duration_sec": 1200}
+    ]},
+    {"table": "players", "rows": [
+      {"player_id": 1, "is_banned": false},
+      {"player_id": 2, "is_banned": false}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"session_id": 1, "player_id": 1, "start_ts": "2025-01-01T20:00:00Z", "prev_start_ts": null, "days_since_prev": null, "is_reactivation": false},
+    {"session_id": 2, "player_id": 1, "start_ts": "2025-01-15T08:00:00Z", "prev_start_ts": "2025-01-01T20:00:00Z", "days_since_prev": 14, "is_reactivation": false},
+    {"session_id": 3, "player_id": 1, "start_ts": "2025-03-01T09:00:00Z", "prev_start_ts": "2025-01-15T08:00:00Z", "days_since_prev": 45, "is_reactivation": true},
+    {"session_id": 4, "player_id": 2, "start_ts": "2025-02-10T10:00:00Z", "prev_start_ts": null, "days_since_prev": null, "is_reactivation": false}
+  ],
+  "edge_cases": [
+    "First session per player: is_reactivation must be FALSE, not NULL",
+    "Exactly 30 days is not a reactivation (strictly greater than 30)",
+    "Days are calendar-date differences, so 20:00 to 08:00 fourteen dates later is 14, not 13",
+    "Two sessions with identical start_ts need a deterministic order (session_id)"
+  ],
+  "common_failure_modes": [
+    "FM4: TIMESTAMP_DIFF(start_ts, prev, DAY) counts whole 24-hour periods (13) whereas DATE_DIFF of dates gives 14",
+    "FM5: NULL > 30 evaluates to NULL, leaving is_reactivation NULL for first sessions",
+    "FM3: LAG without PARTITION BY player_id picks another player's session"
+  ]
+}

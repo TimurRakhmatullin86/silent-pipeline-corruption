@@ -1,0 +1,75 @@
+{
+  "task_id": "etl_094",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for retail_chain that maps invoice exports from a German ERP system to a normalized schema. The script should: (1) read a semicolon-delimited, Latin-1 encoded CSV, (2) parse net amounts written with '.' as thousands separator and ',' as decimal separator, including a trailing minus sign for credit notes, (3) parse the VAT rate from strings such as '19%' or '12,5%' into a fraction, (4) parse invoice dates in DD.MM.YYYY, (5) compute gross_amount = net_amount * (1 + vat_rate) rounded half-up to 2 decimals.",
+  "schema": {
+    "source_columns": {
+      "Rechnungsnr": "string",
+      "Datum": "string DD.MM.YYYY",
+      "Nettobetrag": "string (e.g. 1.234,56 or 45,00-)",
+      "MwSt": "string (e.g. 19%)"
+    },
+    "target_columns": {
+      "invoice_no": "string",
+      "invoice_date": "date",
+      "net_amount": "decimal(12,2)",
+      "vat_rate": "decimal(5,4)",
+      "gross_amount": "decimal(12,2)"
+    }
+  },
+  "test_data_sample": [
+    {
+      "Rechnungsnr": "R-1001",
+      "Datum": "03.04.2025",
+      "Nettobetrag": "1.234,56",
+      "MwSt": "19%"
+    },
+    {
+      "Rechnungsnr": "R-1002",
+      "Datum": "31.12.2025",
+      "Nettobetrag": "99,90",
+      "MwSt": "7%"
+    },
+    {
+      "Rechnungsnr": "R-1003",
+      "Datum": "01.02.2025",
+      "Nettobetrag": "45,00-",
+      "MwSt": "19%"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "invoice_no": "R-1001",
+      "invoice_date": "2025-04-03",
+      "net_amount": "1234.56",
+      "vat_rate": "0.1900",
+      "gross_amount": "1469.13"
+    },
+    {
+      "invoice_no": "R-1002",
+      "invoice_date": "2025-12-31",
+      "net_amount": "99.90",
+      "vat_rate": "0.0700",
+      "gross_amount": "106.89"
+    },
+    {
+      "invoice_no": "R-1003",
+      "invoice_date": "2025-02-01",
+      "net_amount": "-45.00",
+      "vat_rate": "0.1900",
+      "gross_amount": "-53.55"
+    }
+  ],
+  "edge_cases": [
+    "'1.234,56' must not be read as 1.234 by a default float parser",
+    "03.04.2025 is 3 April (day first); 01.02.2025 is 1 February",
+    "Trailing minus '45,00-' denotes a negative amount",
+    "File encoding is Latin-1; reading as UTF-8 fails or corrupts customer names containing umlauts",
+    "Rounding must be half-up on decimals, not banker's rounding on floats"
+  ],
+  "common_failure_modes": [
+    "FM4: Default numeric parsing truncates at the thousands separator (1.234,56 -> 1.234)",
+    "FM4: Month-first date inference swaps day and month for days <= 12",
+    "FM7: Unparseable amounts coerced to NaN and dropped without a reject count"
+  ]
+}

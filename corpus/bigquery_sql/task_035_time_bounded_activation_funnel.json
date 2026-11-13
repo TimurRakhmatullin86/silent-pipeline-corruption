@@ -1,0 +1,59 @@
+{
+  "task_id": "bq_035",
+  "category": "bigquery_sql",
+  "description": "Build a time-bounded activation funnel per weekly signup cohort (weeks start on Monday, UTC) for the subscription service. Step 1: signed up. Step 2 (activated): created a first project within 7 days of signup, i.e. project created_ts <= signup_ts + INTERVAL 7 DAY (exact timestamp arithmetic, inclusive). Step 3 (paid): activated AND has a successful payment with paid_ts <= signup_ts + INTERVAL 30 DAY and paid_ts >= signup_ts. Output columns: signup_week (DATE), signups (INT64), activated (INT64), paid (INT64).",
+  "schema": {
+    "users": {
+      "columns": {
+        "user_id": {"type": "INT64", "description": "Primary key"},
+        "signup_ts": {"type": "TIMESTAMP", "description": "UTC signup timestamp"}
+      }
+    },
+    "projects": {
+      "columns": {
+        "project_id": {"type": "INT64", "description": "Primary key"},
+        "user_id": {"type": "INT64", "description": "Owner"},
+        "created_ts": {"type": "TIMESTAMP", "description": "UTC creation timestamp"}
+      }
+    },
+    "payments": {
+      "columns": {
+        "payment_id": {"type": "INT64", "description": "Primary key"},
+        "user_id": {"type": "INT64", "description": "Payer"},
+        "paid_ts": {"type": "TIMESTAMP", "description": "UTC payment timestamp"},
+        "status": {"type": "STRING", "description": "success or failed"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "users", "rows": [
+      {"user_id": 1, "signup_ts": "2025-06-02T10:00:00Z"},
+      {"user_id": 2, "signup_ts": "2025-06-02T10:00:00Z"},
+      {"user_id": 3, "signup_ts": "2025-06-03T08:00:00Z"}
+    ]},
+    {"table": "projects", "rows": [
+      {"project_id": 1, "user_id": 1, "created_ts": "2025-06-09T10:00:00Z"},
+      {"project_id": 2, "user_id": 2, "created_ts": "2025-06-09T10:00:01Z"},
+      {"project_id": 3, "user_id": 3, "created_ts": "2025-06-04T08:00:00Z"}
+    ]},
+    {"table": "payments", "rows": [
+      {"payment_id": 1, "user_id": 1, "paid_ts": "2025-06-20T12:00:00Z", "status": "success"},
+      {"payment_id": 2, "user_id": 2, "paid_ts": "2025-06-15T12:00:00Z", "status": "success"},
+      {"payment_id": 3, "user_id": 3, "paid_ts": "2025-07-10T12:00:00Z", "status": "success"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"signup_week": "2025-06-02", "signups": 3, "activated": 2, "paid": 1}
+  ],
+  "edge_cases": [
+    "Project created exactly 7 days after signup counts; one second later does not (user 2)",
+    "User 2 paid but never activated in time, so is not counted at step 3",
+    "User 3 activated but paid after the 30-day window",
+    "Failed payments and multiple projects/payments per user must not inflate counts"
+  ],
+  "common_failure_modes": [
+    "FM2: Comparing calendar dates (DATE_DIFF <= 7) instead of exact timestamps admits user 2",
+    "FM3: Counting step 3 independently of step 2 reports paid = 2",
+    "FM4: DATE_TRUNC(..., WEEK) defaults to Sunday-based weeks in BigQuery"
+  ]
+}

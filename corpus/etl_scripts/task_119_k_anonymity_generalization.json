@@ -1,0 +1,95 @@
+{
+  "task_id": "etl_119",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for health_portal that prepares a research extract with k-anonymity (k = 3) over the quasi-identifiers age and zip code. The script should: (1) generalize age into 10-year bands ('30-39', ...; 90 and above become '90+'), (2) generalize zip_code to its first 3 characters (zip3), (3) count records per (age_band, zip3) group, (4) suppress groups smaller than k by replacing both age_band and zip3 with '*', (5) drop direct identifiers (patient_id, name), (6) report the number of suppressed records and verify that no remaining generalized group is smaller than k.",
+  "schema": {
+    "source_columns": {
+      "patient_id": "string",
+      "name": "string",
+      "age": "int",
+      "zip_code": "string",
+      "diagnosis": "string"
+    },
+    "target_columns": {
+      "age_band": "string",
+      "zip3": "string",
+      "diagnosis": "string"
+    }
+  },
+  "test_data_sample": [
+    {
+      "patient_id": "pt1",
+      "name": "Test A",
+      "age": 34,
+      "zip_code": "94107",
+      "diagnosis": "asthma"
+    },
+    {
+      "patient_id": "pt2",
+      "name": "Test B",
+      "age": 39,
+      "zip_code": "94110",
+      "diagnosis": "diabetes"
+    },
+    {
+      "patient_id": "pt3",
+      "name": "Test C",
+      "age": 30,
+      "zip_code": "94103",
+      "diagnosis": "asthma"
+    },
+    {
+      "patient_id": "pt4",
+      "name": "Test D",
+      "age": 40,
+      "zip_code": "94105",
+      "diagnosis": "hypertension"
+    },
+    {
+      "patient_id": "pt5",
+      "name": "Test E",
+      "age": 62,
+      "zip_code": "02134",
+      "diagnosis": "asthma"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "age_band": "30-39",
+      "zip3": "941",
+      "diagnosis": "asthma"
+    },
+    {
+      "age_band": "30-39",
+      "zip3": "941",
+      "diagnosis": "diabetes"
+    },
+    {
+      "age_band": "30-39",
+      "zip3": "941",
+      "diagnosis": "asthma"
+    },
+    {
+      "age_band": "*",
+      "zip3": "*",
+      "diagnosis": "hypertension"
+    },
+    {
+      "age_band": "*",
+      "zip3": "*",
+      "diagnosis": "asthma"
+    }
+  ],
+  "edge_cases": [
+    "Band boundaries: 39 falls in '30-39' and 40 in '40-49'; pd.cut with the default right-closed bins puts 40 into the 30-40 band",
+    "zip_code must be handled as a string: '02134' read as an integer yields zip3 '213' instead of '021'",
+    "pt4 shares zip3 941 with the first three records but is alone in its (age_band, zip3) group and must be suppressed",
+    "In the sample the suppressed group itself has only 2 records, below k; the script must flag this residual risk in its report rather than claim compliance",
+    "patient_id and name must not appear in the output"
+  ],
+  "common_failure_modes": [
+    "FM3: Group sizes counted on one quasi-identifier at a time instead of on their combination",
+    "FM7: No post-check that every released group has at least k records",
+    "FM5: Numeric zip codes lose leading zeros before truncation"
+  ]
+}

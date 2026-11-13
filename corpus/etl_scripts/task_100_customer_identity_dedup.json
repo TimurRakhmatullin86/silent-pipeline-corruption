@@ -1,0 +1,95 @@
+{
+  "task_id": "etl_100",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for saas_metrics that deduplicates customer records by normalized email and phone. The script should: (1) normalize email (trim, lower case) and phone (digits only; a 10-digit number gets country code 1; output as +<digits>), (2) link records that share a normalized email or a normalized phone, transitively, (3) for each linked cluster keep one survivor: the record with the earliest created_at, enriched with the first non-null normalized email and phone found in the cluster ordered by created_at, (4) output the survivor row plus merged_ids listing all source ids in the cluster, (5) never link records through null or empty values.",
+  "schema": {
+    "source_columns": {
+      "customer_id": "string",
+      "email": "string (nullable)",
+      "phone": "string (nullable)",
+      "created_at": "date"
+    },
+    "target_columns": {
+      "customer_id": "string (survivor)",
+      "email": "string (nullable)",
+      "phone": "string (nullable)",
+      "created_at": "date",
+      "merged_ids": "list of string"
+    }
+  },
+  "test_data_sample": [
+    {
+      "customer_id": "c1",
+      "email": "Ann.Lee@Example.com",
+      "phone": "(415) 555-0101",
+      "created_at": "2024-01-01"
+    },
+    {
+      "customer_id": "c2",
+      "email": "ann.lee@example.com ",
+      "phone": null,
+      "created_at": "2024-06-01"
+    },
+    {
+      "customer_id": "c3",
+      "email": null,
+      "phone": "+1 415 555 0101",
+      "created_at": "2023-01-01"
+    },
+    {
+      "customer_id": "c4",
+      "email": null,
+      "phone": null,
+      "created_at": "2024-02-01"
+    },
+    {
+      "customer_id": "c5",
+      "email": "",
+      "phone": null,
+      "created_at": "2024-03-01"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "customer_id": "c3",
+      "email": "ann.lee@example.com",
+      "phone": "+14155550101",
+      "created_at": "2023-01-01",
+      "merged_ids": [
+        "c3",
+        "c1",
+        "c2"
+      ]
+    },
+    {
+      "customer_id": "c4",
+      "email": null,
+      "phone": null,
+      "created_at": "2024-02-01",
+      "merged_ids": [
+        "c4"
+      ]
+    },
+    {
+      "customer_id": "c5",
+      "email": null,
+      "phone": null,
+      "created_at": "2024-03-01",
+      "merged_ids": [
+        "c5"
+      ]
+    }
+  ],
+  "edge_cases": [
+    "c2 and c3 share nothing directly; they are linked transitively through c1 (email with c2, phone with c3)",
+    "c4 and c5 have null/empty identifiers and must stay separate; grouping on null keys would merge all anonymous customers",
+    "Empty string email is treated as null",
+    "The survivor c3 has no email of its own and inherits the cluster's normalized email",
+    "drop_duplicates on a single column cannot express transitive matching; a union-find or connected-components approach is needed"
+  ],
+  "common_failure_modes": [
+    "FM1: Self-join on nullable keys links every record with a null email or phone",
+    "FM7: Normalization skipped, so case and formatting variants are not detected as duplicates",
+    "FM3: Deduplicating on email and phone in two separate passes loses transitive links and survivor enrichment"
+  ]
+}

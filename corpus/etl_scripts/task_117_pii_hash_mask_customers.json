@@ -1,0 +1,79 @@
+{
+  "task_id": "etl_117",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for fintech_app that produces an analytics-safe copy of the customers table. The script should: (1) replace email with email_hash = SHA-256 hex digest of (salt + trimmed, lower-cased email), with the salt read from an environment variable (the sample uses the salt 'corpus_test_salt'), (2) mask phone numbers to the last 4 digits prefixed by '***-***-', (3) reduce full_name to initials, (4) reduce date_of_birth to birth_year, (5) drop the raw PII columns from the output and assert that none remain, (6) keep null inputs as null outputs.",
+  "schema": {
+    "source_columns": {
+      "customer_id": "string",
+      "full_name": "string",
+      "email": "string (nullable)",
+      "phone": "string (nullable)",
+      "date_of_birth": "string YYYY-MM-DD"
+    },
+    "target_columns": {
+      "customer_id": "string",
+      "initials": "string",
+      "email_hash": "string (64 hex chars, nullable)",
+      "phone_masked": "string (nullable)",
+      "birth_year": "int"
+    }
+  },
+  "test_data_sample": [
+    {
+      "customer_id": "c1",
+      "full_name": "Maria Okonkwo",
+      "email": "Maria.O@Example.com ",
+      "phone": "+1 (212) 555-0147",
+      "date_of_birth": "1988-07-14"
+    },
+    {
+      "customer_id": "c2",
+      "full_name": "Li Wei",
+      "email": "maria.o@example.com",
+      "phone": "212.555.0199",
+      "date_of_birth": "1990-01-01"
+    },
+    {
+      "customer_id": "c3",
+      "full_name": "Sam de la Cruz",
+      "email": null,
+      "phone": null,
+      "date_of_birth": "2001-12-31"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "customer_id": "c1",
+      "initials": "MO",
+      "email_hash": "e534810c67ff6bbc169f378a4f4c2f271e0c55fa2076f3377b64da9b3103c6d8",
+      "phone_masked": "***-***-0147",
+      "birth_year": 1988
+    },
+    {
+      "customer_id": "c2",
+      "initials": "LW",
+      "email_hash": "e534810c67ff6bbc169f378a4f4c2f271e0c55fa2076f3377b64da9b3103c6d8",
+      "phone_masked": "***-***-0199",
+      "birth_year": 1990
+    },
+    {
+      "customer_id": "c3",
+      "initials": "SdlC",
+      "email_hash": null,
+      "phone_masked": null,
+      "birth_year": 2001
+    }
+  ],
+  "edge_cases": [
+    "c1 and c2 hold the same email in different case and with trailing whitespace; after normalization their hashes are identical, which keeps joins on the hash working",
+    "A null email must stay null; hashing the string 'None' or 'nan' gives every null email the same real-looking hash",
+    "The salt must come from configuration and must never be written to the output or logs",
+    "The phone mask must use the last 4 digits after stripping all non-digit characters",
+    "The output must not contain full_name, email, phone or date_of_birth columns"
+  ],
+  "common_failure_modes": [
+    "FM7: Raw PII columns left in the output next to the masked ones",
+    "FM1: Unnormalized emails hash differently and break joins across masked datasets",
+    "FM7: Null values converted to strings and hashed"
+  ]
+}

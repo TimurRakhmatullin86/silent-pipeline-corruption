@@ -1,0 +1,31 @@
+{
+  "task_id": "af_052",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for adtech_platform that processes the daily impressions dump using a compute path chosen by input size. The DAG should: (1) compute total bytes and row count of the day's input files and push them to XCom, (2) branch: under 5 GB go to 'process_pandas' on a KubernetesPodOperator, between 5 GB and 200 GB go to 'process_spark_small', above 200 GB go to 'process_spark_large', and zero files go to 'handle_missing_input', (3) all processing branches converge on 'validate_output' then 'publish'. 'handle_missing_input' must raise an alert and end the run as failed.",
+  "schema": {
+    "source": "s3://adtech-platform-raw/impressions/dt={{ ds }}/",
+    "target": "warehouse.fct_impressions_daily"
+  },
+  "expected_behavior": {
+    "schedule": "0 4 * * *",
+    "catchup": false,
+    "thresholds_bytes": {
+      "pandas_max": 5368709120,
+      "spark_small_max": 214748364800
+    },
+    "validate_trigger_rule": "none_failed_min_one_success",
+    "missing_input_outcome": "DAG run failed",
+    "retries": 1
+  },
+  "edge_cases": [
+    "Boundary values: exactly 5 GB goes to spark_small, exactly 200 GB goes to spark_small (above 200 GB is strictly greater)",
+    "Zero input files must not route to the pandas branch just because 0 < 5 GB",
+    "XCom value pulled in the branch callable must be cast to int; templated XCom arrives as a string unless render_template_as_native_obj is set",
+    "handle_missing_input must raise AirflowFailException so the DAG run is marked failed, while validate_output is skipped"
+  ],
+  "common_failure_modes": [
+    "FM6: Size check ordered so that zero bytes satisfies the first condition and an empty dataset is published",
+    "FM6: String comparison of XCom byte counts ('900' > '5368709120') selects the wrong branch",
+    "FM7: validate_output with trigger_rule='all_done' runs and passes after the missing-input branch"
+  ]
+}

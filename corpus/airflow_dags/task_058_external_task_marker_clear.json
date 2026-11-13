@@ -1,0 +1,38 @@
+{
+  "task_id": "af_058",
+  "category": "airflow_dag",
+  "description": "Create two Airflow DAGs for health_portal: 'claims_raw_load' (parent) and 'claims_quality_metrics' (child), wired so that clearing the parent's final task also clears the dependent child task. The parent must end with an ExternalTaskMarker pointing at the child's ExternalTaskSensor. The child must: (1) wait on the parent's final load task, (2) compute quality metrics for the day partition with delete-then-insert semantics, (3) publish metrics. Both run daily, parent at 02:00 UTC and child at 02:30 UTC.",
+  "schema": {
+    "source": "health_portal.raw.claims",
+    "target": "health_portal.metrics.claims_quality_daily"
+  },
+  "expected_behavior": {
+    "parent_schedule": "0 2 * * *",
+    "child_schedule": "30 2 * * *",
+    "catchup": false,
+    "marker": {
+      "external_dag_id": "claims_quality_metrics",
+      "external_task_id": "wait_for_claims_raw",
+      "execution_date": "{{ logical_date.add(minutes=30).isoformat() }}",
+      "recursion_depth": 3
+    },
+    "child_sensor": {
+      "external_dag_id": "claims_raw_load",
+      "external_task_id": "load_claims",
+      "execution_delta": "0:30:00",
+      "mode": "reschedule"
+    },
+    "metrics_write": "delete partition then insert"
+  },
+  "edge_cases": [
+    "The marker's execution_date must be offset by +30 minutes to match the child's logical date; the default (same logical date) points at a nonexistent run",
+    "The child sensor's execution_delta (30 minutes) is the mirror of the marker offset",
+    "Metrics task must be idempotent because it will be re-executed after a parent clear",
+    "ExternalTaskMarker only propagates when the parent is cleared with the 'Recursive' option"
+  ],
+  "common_failure_modes": [
+    "FM6: Marker without an execution_date offset silently clears nothing in the child DAG",
+    "FM6: Child sensor waits on the marker task itself instead of the load task, creating a circular wait",
+    "FM3: Metrics appended on re-run, doubling counts for the reprocessed day"
+  ]
+}

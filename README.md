@@ -16,6 +16,10 @@ corpus/                  # Synthetic task corpus (150 tasks)
   bigquery_sql/          # 70 BigQuery SQL transformation tasks
   airflow_dags/          # 40 Airflow DAG definition tasks
   etl_scripts/           # 40 Python ETL transformation tasks
+solutions/               # Generated solutions (450 files)
+  bigquery_sql/          # 70 × 3 generators = 210 SQL files
+  airflow_dags/          # 40 × 3 generators = 120 Python files
+  etl_scripts/           # 40 × 3 generators = 120 Python files
 evaluation/              # Evaluation framework
   evaluate.py            # Main 4-level evaluation pipeline
   metrics.py             # Silent failure gap and derived metrics
@@ -26,6 +30,15 @@ spv/                     # Semantic Pipeline Verification framework
 prompts/                 # Standardized generation prompts
 taxonomy/                # FM1-FM7 failure mode taxonomy
 ```
+
+## Solutions
+
+Each task has three generated solutions from different LLMs:
+- **GPT-5** (`gpt5.sql` / `gpt5.py`)
+- **Claude Sonnet 4** (`claude_sonnet4.sql` / `claude_sonnet4.py`)
+- **DeepSeek-V3** (`deepseek_v3.sql` / `deepseek_v3.py`)
+
+Solutions are stored in `solutions/<category>/<task_id>/` with generation metadata in file headers.
 
 ## Task Format
 

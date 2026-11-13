@@ -1,0 +1,96 @@
+{
+  "task_id": "etl_092",
+  "category": "etl_script",
+  "description": "Write a PySpark ETL script for iot_fleet that unifies telemetry files written with three schema versions into a single target table. v1 files have device_id, ts (epoch seconds) and temp (Fahrenheit); v2 files have device_id, ts (ISO 8601), temperature_c and humidity; v3 files have device_id, event_time (ISO 8601), temperature_c, humidity_pct and battery_pct. The script should: (1) read each version with an explicit schema, (2) map every version to the target columns, converting Fahrenheit to Celsius ((F - 32) * 5 / 9, rounded to 1 decimal) and timestamps to UTC, (3) fill columns absent in older versions with null, (4) union by column name, (5) tag each row with schema_version.",
+  "schema": {
+    "source_columns": {
+      "v1": {
+        "device_id": "string",
+        "ts": "long (epoch seconds)",
+        "temp": "double (Fahrenheit)"
+      },
+      "v2": {
+        "device_id": "string",
+        "ts": "string (ISO 8601)",
+        "temperature_c": "double",
+        "humidity": "double"
+      },
+      "v3": {
+        "device_id": "string",
+        "event_time": "string (ISO 8601)",
+        "temperature_c": "double",
+        "humidity_pct": "double",
+        "battery_pct": "int"
+      }
+    },
+    "target_columns": {
+      "device_id": "string",
+      "event_time": "timestamp (UTC)",
+      "temperature_c": "double",
+      "humidity_pct": "double (nullable)",
+      "battery_pct": "int (nullable)",
+      "schema_version": "int"
+    }
+  },
+  "test_data_sample": [
+    {
+      "_schema_version": 1,
+      "device_id": "d1",
+      "ts": 1735689600,
+      "temp": 68.0
+    },
+    {
+      "_schema_version": 2,
+      "device_id": "d2",
+      "ts": "2025-01-01T01:00:00Z",
+      "temperature_c": 21.5,
+      "humidity": 40.0
+    },
+    {
+      "_schema_version": 3,
+      "device_id": "d3",
+      "event_time": "2025-01-01T02:00:00+01:00",
+      "temperature_c": 19.0,
+      "humidity_pct": 55.0,
+      "battery_pct": 80
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "device_id": "d1",
+      "event_time": "2025-01-01T00:00:00Z",
+      "temperature_c": 20.0,
+      "humidity_pct": null,
+      "battery_pct": null,
+      "schema_version": 1
+    },
+    {
+      "device_id": "d2",
+      "event_time": "2025-01-01T01:00:00Z",
+      "temperature_c": 21.5,
+      "humidity_pct": 40.0,
+      "battery_pct": null,
+      "schema_version": 2
+    },
+    {
+      "device_id": "d3",
+      "event_time": "2025-01-01T01:00:00Z",
+      "temperature_c": 19.0,
+      "humidity_pct": 55.0,
+      "battery_pct": 80,
+      "schema_version": 3
+    }
+  ],
+  "edge_cases": [
+    "Positional union() would put v1 Fahrenheit values into temperature_c without conversion; unionByName on mapped frames is required",
+    "Missing battery_pct in v1/v2 must be null, never 0",
+    "v1 epoch seconds must not be interpreted as milliseconds",
+    "The Spark session timezone must be UTC so that the +01:00 offset in v3 resolves to 01:00:00Z",
+    "Reading all versions with mergeSchema yields both ts (two types) and event_time columns and fails or nulls values"
+  ],
+  "common_failure_modes": [
+    "FM5: Positional union or schema inference mixes units and columns across versions",
+    "FM5: Missing fields defaulted to 0 corrupt battery and humidity averages",
+    "FM2: Session-local timezone shifts parsed timestamps"
+  ]
+}

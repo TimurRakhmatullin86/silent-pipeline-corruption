@@ -1,0 +1,32 @@
+{
+  "task_id": "af_069",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for ecom_market with catchup=True that builds daily order summaries and must be safely backfillable for the past two years. The DAG should: (1) extract orders whose order_ts falls within [data_interval_start, data_interval_end), (2) aggregate by seller and category, (3) overwrite exactly the day's partition in the target table, (4) run with max_active_runs=4 and a pool limiting warehouse concurrency. No task may reference the current date. Dimension attributes (seller tier) must be taken as of the order date using the SCD2 seller dimension, not the current values.",
+  "schema": {
+    "source": "sales.orders, dims.seller_scd2 (seller_id, tier, valid_from, valid_to)",
+    "target": "analytics.daily_seller_category_sales (partitioned by order_date)"
+  },
+  "expected_behavior": {
+    "schedule": "@daily",
+    "start_date": "2023-01-01",
+    "catchup": true,
+    "max_active_runs": 4,
+    "pool": "warehouse_backfill",
+    "depends_on_past": false,
+    "write_mode": "partition overwrite",
+    "scd_join": "order_ts >= valid_from AND order_ts < valid_to",
+    "retries": 2
+  },
+  "edge_cases": [
+    "Use of CURRENT_DATE, now(), or 'latest' dimension rows makes backfilled partitions differ from originally computed ones",
+    "The SCD2 join must be half-open; rows where valid_to is NULL represent the current version and must be matched with COALESCE(valid_to, '9999-12-31')",
+    "Partition overwrite must be scoped to one day so that parallel backfill runs do not overwrite each other",
+    "Orders with no matching seller version must be kept with tier = 'unknown' and counted",
+    "Late-arriving orders are outside this DAG's scope and must not be picked up by widening the window"
+  ],
+  "common_failure_modes": [
+    "FM2: Joining to the current seller tier rewrites history during backfill",
+    "FM1: SCD2 join with BETWEEN duplicates orders placed exactly at a version boundary",
+    "FM6: Full-table overwrite with max_active_runs > 1 lets concurrent backfill runs clobber each other"
+  ]
+}

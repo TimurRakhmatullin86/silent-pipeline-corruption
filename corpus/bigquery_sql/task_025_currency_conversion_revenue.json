@@ -1,0 +1,52 @@
+{
+  "task_id": "bq_025",
+  "category": "bigquery_sql",
+  "description": "Compute daily revenue in USD for the ecommerce marketplace. Each transaction is in its own currency. Convert using fx_rates: use the rate for the transaction's UTC date, or, if no rate exists for that date (weekends, holidays), the most recent earlier rate for the same currency. USD transactions have no rows in fx_rates and use a rate of 1.0. Output columns: txn_date (DATE), revenue_usd (FLOAT64, 2 decimals), txn_count (INT64).",
+  "schema": {
+    "transactions": {
+      "columns": {
+        "txn_id": {"type": "INT64", "description": "Primary key"},
+        "amount": {"type": "FLOAT64", "description": "Amount in the transaction currency"},
+        "currency": {"type": "STRING", "description": "ISO 4217 code"},
+        "txn_ts": {"type": "TIMESTAMP", "description": "UTC transaction timestamp"}
+      }
+    },
+    "fx_rates": {
+      "columns": {
+        "currency": {"type": "STRING", "description": "ISO 4217 code (never USD)"},
+        "rate_date": {"type": "DATE", "description": "Business date of the rate; no rows on weekends"},
+        "rate_to_usd": {"type": "FLOAT64", "description": "Multiply an amount in currency by this to get USD"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "transactions", "rows": [
+      {"txn_id": 1, "amount": 100.0, "currency": "EUR", "txn_ts": "2025-03-07T15:00:00Z"},
+      {"txn_id": 2, "amount": 100.0, "currency": "EUR", "txn_ts": "2025-03-08T09:00:00Z"},
+      {"txn_id": 3, "amount": 50.0, "currency": "USD", "txn_ts": "2025-03-08T10:00:00Z"},
+      {"txn_id": 4, "amount": 200.0, "currency": "GBP", "txn_ts": "2025-03-10T10:00:00Z"}
+    ]},
+    {"table": "fx_rates", "rows": [
+      {"currency": "EUR", "rate_date": "2025-03-06", "rate_to_usd": 1.09},
+      {"currency": "EUR", "rate_date": "2025-03-07", "rate_to_usd": 1.10},
+      {"currency": "EUR", "rate_date": "2025-03-10", "rate_to_usd": 1.08},
+      {"currency": "GBP", "rate_date": "2025-03-10", "rate_to_usd": 1.25}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"txn_date": "2025-03-07", "revenue_usd": 110.0, "txn_count": 1},
+    {"txn_date": "2025-03-08", "revenue_usd": 160.0, "txn_count": 2},
+    {"txn_date": "2025-03-10", "revenue_usd": 250.0, "txn_count": 1}
+  ],
+  "edge_cases": [
+    "Saturday transaction uses Friday's rate (most recent prior), never a future rate",
+    "USD transactions have no fx_rates row and must not be dropped",
+    "A currency with no rate on or before the transaction date yields NULL converted amount and should be surfaced, not silently summed as 0",
+    "Exactly one rate must be applied per transaction"
+  ],
+  "common_failure_modes": [
+    "FM1: Joining on currency with rate_date <= txn_date without selecting the latest rate multiplies each transaction by every earlier rate",
+    "FM1: INNER JOIN on (currency, date) drops weekend and USD transactions",
+    "FM2: Picking the nearest rate in either direction uses Monday's rate for a Saturday transaction"
+  ]
+}

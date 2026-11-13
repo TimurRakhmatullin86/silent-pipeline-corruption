@@ -1,0 +1,108 @@
+{
+  "task_id": "etl_086",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for telecom_co that maintains a Type 2 slowly changing customer dimension. Inputs are the existing dimension and a daily snapshot of customers with an effective date (2025-03-10 in the sample). The script should: (1) compare each incoming customer to its current dimension row on the tracked attributes (tier, region), (2) for changed customers close the current row (valid_to = effective date, is_current = false) and insert a new current row (valid_from = effective date, valid_to = null), (3) insert new customers, (4) leave unchanged customers untouched, (5) never create more than one current row per customer. In the sample, rows are tagged with _dataset to distinguish the existing dimension from the incoming snapshot.",
+  "schema": {
+    "source_columns": {
+      "customer_id": "string",
+      "tier": "string",
+      "region": "string (nullable)",
+      "snapshot_date": "date"
+    },
+    "target_columns": {
+      "customer_id": "string",
+      "tier": "string",
+      "region": "string",
+      "valid_from": "date",
+      "valid_to": "date (nullable)",
+      "is_current": "boolean"
+    }
+  },
+  "test_data_sample": [
+    {
+      "_dataset": "existing_dim",
+      "customer_id": "c1",
+      "tier": "silver",
+      "region": "north",
+      "valid_from": "2025-01-01",
+      "valid_to": null,
+      "is_current": true
+    },
+    {
+      "_dataset": "existing_dim",
+      "customer_id": "c3",
+      "tier": "bronze",
+      "region": null,
+      "valid_from": "2025-02-01",
+      "valid_to": null,
+      "is_current": true
+    },
+    {
+      "_dataset": "incoming",
+      "customer_id": "c1",
+      "tier": "gold",
+      "region": "north",
+      "snapshot_date": "2025-03-10"
+    },
+    {
+      "_dataset": "incoming",
+      "customer_id": "c2",
+      "tier": "bronze",
+      "region": "south",
+      "snapshot_date": "2025-03-10"
+    },
+    {
+      "_dataset": "incoming",
+      "customer_id": "c3",
+      "tier": "bronze",
+      "region": null,
+      "snapshot_date": "2025-03-10"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "customer_id": "c1",
+      "tier": "silver",
+      "region": "north",
+      "valid_from": "2025-01-01",
+      "valid_to": "2025-03-10",
+      "is_current": false
+    },
+    {
+      "customer_id": "c1",
+      "tier": "gold",
+      "region": "north",
+      "valid_from": "2025-03-10",
+      "valid_to": null,
+      "is_current": true
+    },
+    {
+      "customer_id": "c2",
+      "tier": "bronze",
+      "region": "south",
+      "valid_from": "2025-03-10",
+      "valid_to": null,
+      "is_current": true
+    },
+    {
+      "customer_id": "c3",
+      "tier": "bronze",
+      "region": null,
+      "valid_from": "2025-02-01",
+      "valid_to": null,
+      "is_current": true
+    }
+  ],
+  "edge_cases": [
+    "c3 has region null on both sides: null == null must count as 'unchanged' (NaN != NaN in pandas would create a spurious new version)",
+    "Validity ranges are half-open [valid_from, valid_to): the closed row ends on the same date the new row starts",
+    "Running the script twice for the same snapshot_date must not create additional versions",
+    "The comparison must be made against the current row only (is_current = true), not against every historical row",
+    "A customer absent from the snapshot is left as is (no implicit delete)"
+  ],
+  "common_failure_modes": [
+    "FM1: Joining the snapshot to all dimension rows instead of current rows creates duplicate versions",
+    "FM7: Null-unsafe comparison generates a new version every day for customers with null attributes",
+    "FM2: Closing rows with valid_to = effective date - 1 leaves a one-day gap for timestamp-based lookups"
+  ]
+}

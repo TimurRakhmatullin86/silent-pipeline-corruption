@@ -1,0 +1,30 @@
+{
+  "task_id": "af_071",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for media_stream that recomputes daily viewing metrics with a 3-day lookback to capture late-arriving playback events. Each daily run must reprocess partitions for ds-3 through ds (4 partitions) based on event_date, replacing each partition. The DAG should: (1) generate the list of dates to reprocess from the data interval, (2) use dynamic task mapping to rebuild each date partition, (3) record for each partition the row count before and after, (4) publish a 'restatement' record when a previously published partition changed by more than 0.5%. Catchup is False but manual backfills via 'airflow dags backfill' must work.",
+  "schema": {
+    "source": "events.playback (event_ts, ingested_at)",
+    "target": "analytics.daily_viewing_metrics (partitioned by event_date), ops.metric_restatements"
+  },
+  "expected_behavior": {
+    "schedule": "0 6 * * *",
+    "catchup": false,
+    "lookback_days": 3,
+    "partition_key": "event_date derived from event_ts in UTC",
+    "restatement_threshold": 0.005,
+    "max_active_runs": 1,
+    "retries": 2
+  },
+  "edge_cases": [
+    "Partitions must be rebuilt by event_ts, not by ingested_at; filtering by ingestion date misassigns late events",
+    "The lookback list must be derived from data_interval_start so that a backfill of an old date reprocesses the right 4 days",
+    "Two overlapping runs (manual backfill plus scheduled) must not rebuild the same partition concurrently; max_active_runs=1 or a per-partition lock is needed",
+    "A percentage change against a previous count of 0 must not divide by zero",
+    "Events dated in the future (device clock skew) must be excluded or quarantined"
+  ],
+  "common_failure_modes": [
+    "FM2: Partitioning by ingestion time counts late events on the wrong day",
+    "FM3: Appending late events instead of rebuilding the partition double counts events ingested twice",
+    "FM6: Lookback computed from the current date makes backfills reprocess today's partitions repeatedly"
+  ]
+}

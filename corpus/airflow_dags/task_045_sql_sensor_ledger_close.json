@@ -1,0 +1,32 @@
+{
+  "task_id": "af_045",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for fintech_app that builds the daily general-ledger snapshot only after the upstream core-banking system has closed the business day. The DAG should: (1) use a SqlSensor in reschedule mode that polls ledger_control.day_close for a row with close_date = {{ ds }} and status = 'CLOSED', (2) extract the day's journal entries into a staging table, (3) verify that total debits equal total credits for the day, (4) publish the snapshot table partition, (5) email the finance distribution list. The DAG runs daily at 01:00 UTC. The sensor should poll every 10 minutes for up to 6 hours. If debits and credits do not balance, the publish step must not run and the DAG must fail.",
+  "schema": {
+    "source": "corebank.ledger_control.day_close, corebank.journal_entries",
+    "staging_table": "staging.journal_entries_daily",
+    "target": "finance.gl_snapshot (partitioned by snapshot_date)"
+  },
+  "expected_behavior": {
+    "schedule": "0 1 * * *",
+    "catchup": false,
+    "sensor_mode": "reschedule",
+    "sensor_poke_interval": 600,
+    "sensor_timeout": 21600,
+    "retries": 1,
+    "balance_check_tolerance": 0,
+    "publish_trigger_rule": "all_success",
+    "email_trigger_rule": "all_success"
+  },
+  "edge_cases": [
+    "SqlSensor success criterion must check status = 'CLOSED'; a row with status = 'CLOSING' returns a truthy first cell if the query only selects the row",
+    "Journal extract must filter on posting_date = {{ ds }}, not on created_at, because late entries are created after midnight",
+    "Balance check must compare exact decimal sums, not floats",
+    "Sensor in poke mode would hold a worker slot for up to 6 hours; reschedule mode is required"
+  ],
+  "common_failure_modes": [
+    "FM6: Sensor query returns any row for the date, so the DAG proceeds while the day is still CLOSING",
+    "FM7: Balance check implemented as a logging task that never raises, so an unbalanced ledger is published",
+    "FM2: Filtering journal entries on created_at instead of posting_date drops late-posted entries"
+  ]
+}

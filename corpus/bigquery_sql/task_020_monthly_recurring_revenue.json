@@ -1,0 +1,53 @@
+{
+  "task_id": "bq_020",
+  "category": "bigquery_sql",
+  "description": "Compute month-end Monthly Recurring Revenue (MRR) for the subscription service for January through March 2025. A subscription is active on a month-end date M if start_date <= M and (end_date IS NULL or end_date > M); end_date is exclusive (the first day the subscription is no longer active). Monthly plans contribute their price; annual plans contribute price / 12. Output columns: month_end (DATE), mrr (FLOAT64, 2 decimals), active_subscriptions (INT64).",
+  "schema": {
+    "subscriptions": {
+      "columns": {
+        "subscription_id": {"type": "INT64", "description": "Primary key"},
+        "customer_id": {"type": "INT64", "description": "Customer identifier"},
+        "plan_id": {"type": "INT64", "description": "Foreign key to plans"},
+        "start_date": {"type": "DATE", "description": "First active day (inclusive)"},
+        "end_date": {"type": "DATE", "description": "First inactive day (exclusive); NULL if still active"}
+      }
+    },
+    "plans": {
+      "columns": {
+        "plan_id": {"type": "INT64", "description": "Primary key"},
+        "plan_name": {"type": "STRING", "description": "Plan name"},
+        "billing_period": {"type": "STRING", "description": "monthly or annual"},
+        "price": {"type": "FLOAT64", "description": "Price per billing period in USD"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "subscriptions", "rows": [
+      {"subscription_id": 1, "customer_id": 10, "plan_id": 1, "start_date": "2025-01-10", "end_date": null},
+      {"subscription_id": 2, "customer_id": 11, "plan_id": 2, "start_date": "2025-01-31", "end_date": null},
+      {"subscription_id": 3, "customer_id": 12, "plan_id": 1, "start_date": "2025-01-05", "end_date": "2025-01-31"},
+      {"subscription_id": 4, "customer_id": 13, "plan_id": 3, "start_date": "2025-02-01", "end_date": "2025-03-01"}
+    ]},
+    {"table": "plans", "rows": [
+      {"plan_id": 1, "plan_name": "Basic Monthly", "billing_period": "monthly", "price": 30.0},
+      {"plan_id": 2, "plan_name": "Basic Annual", "billing_period": "annual", "price": 240.0},
+      {"plan_id": 3, "plan_name": "Pro Monthly", "billing_period": "monthly", "price": 50.0}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"month_end": "2025-01-31", "mrr": 50.0, "active_subscriptions": 2},
+    {"month_end": "2025-02-28", "mrr": 100.0, "active_subscriptions": 3},
+    {"month_end": "2025-03-31", "mrr": 50.0, "active_subscriptions": 2}
+  ],
+  "edge_cases": [
+    "Subscription starting on the month-end date itself is active that month",
+    "Subscription whose end_date equals the month-end date is NOT active (exclusive end)",
+    "Annual plans must be normalized to a monthly amount",
+    "Subscription that starts and ends within the same month never appears in any month-end MRR"
+  ],
+  "common_failure_modes": [
+    "FM2: Treating end_date as inclusive (end_date >= month_end) overstates MRR by counting churned subscriptions",
+    "FM3: Summing the annual price without dividing by 12",
+    "FM4: Computing month end with DATE_ADD(month_start, INTERVAL 30 DAY) instead of LAST_DAY()"
+  ]
+}

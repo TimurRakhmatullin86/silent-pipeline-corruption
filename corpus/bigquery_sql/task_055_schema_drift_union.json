@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_055",
+  "category": "bigquery_sql",
+  "description": "Unify two generations of a purchase events table into one consistent result. purchases_v1 stores user_id as INT64, the event time as epoch SECONDS (INT64) and the amount in integer cents, always in USD. purchases_v2 stores user_id as STRING, the event time as TIMESTAMP, the amount as a decimal in major units, plus a currency column. During the migration both systems were written in parallel, so the same event_uuid can exist in both tables; in that case keep only the v2 row. Output columns: event_uuid (STRING), user_id (INT64), event_ts (TIMESTAMP), amount (FLOAT64, major units), currency (STRING), source_version (STRING: 'v1' or 'v2'). Sort by event_ts.",
+  "schema": {
+    "purchases_v1": {
+      "columns": {
+        "event_uuid": {"type": "STRING", "description": "Globally unique event id"},
+        "user_id": {"type": "INT64", "description": "User identifier"},
+        "ts": {"type": "INT64", "description": "Unix epoch seconds (UTC)"},
+        "amount_cents": {"type": "INT64", "description": "Amount in cents (USD)"}
+      }
+    },
+    "purchases_v2": {
+      "columns": {
+        "event_uuid": {"type": "STRING", "description": "Globally unique event id"},
+        "user_id": {"type": "STRING", "description": "User identifier serialized as a string"},
+        "event_ts": {"type": "TIMESTAMP", "description": "UTC event timestamp"},
+        "amount": {"type": "NUMERIC", "description": "Amount in major currency units"},
+        "currency": {"type": "STRING", "description": "ISO 4217 code"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "purchases_v1", "rows": [
+      {"event_uuid": "a", "user_id": 1, "ts": 1740787200, "amount_cents": 1999},
+      {"event_uuid": "b", "user_id": 2, "ts": 1740873600, "amount_cents": 500}
+    ]},
+    {"table": "purchases_v2", "rows": [
+      {"event_uuid": "b", "user_id": "2", "event_ts": "2025-03-02T00:00:00Z", "amount": 5.00, "currency": "USD"},
+      {"event_uuid": "c", "user_id": "3", "event_ts": "2025-03-03T00:00:00Z", "amount": 7.50, "currency": "EUR"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"event_uuid": "a", "user_id": 1, "event_ts": "2025-03-01T00:00:00Z", "amount": 19.99, "currency": "USD", "source_version": "v1"},
+    {"event_uuid": "b", "user_id": 2, "event_ts": "2025-03-02T00:00:00Z", "amount": 5.0, "currency": "USD", "source_version": "v2"},
+    {"event_uuid": "c", "user_id": 3, "event_ts": "2025-03-03T00:00:00Z", "amount": 7.5, "currency": "EUR", "source_version": "v2"}
+  ],
+  "edge_cases": [
+    "Event 'b' exists in both tables and must appear once, from v2",
+    "v1 amounts are cents and must be divided by 100; v2 amounts are already major units",
+    "v1 timestamps are epoch seconds (not milliseconds)",
+    "v2 user_id strings that are not numeric must become NULL rather than failing the query"
+  ],
+  "common_failure_modes": [
+    "FM5: UNION ALL matches columns by position, so differing column order/types silently mixes cents with dollars or fails on type mismatch",
+    "FM4: TIMESTAMP_MILLIS instead of TIMESTAMP_SECONDS places v1 events in January 1970",
+    "FM3: UNION ALL without deduplicating on event_uuid double-counts dual-written events (UNION DISTINCT does not help because the rows differ)"
+  ]
+}

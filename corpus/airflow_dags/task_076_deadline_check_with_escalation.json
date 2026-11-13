@@ -1,0 +1,36 @@
+{
+  "task_id": "af_076",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for health_portal that delivers the daily bed-occupancy extract to a government endpoint with a hard 08:00 Europe/Paris deadline, with staged escalation. The DAG starts at 05:00 local time and should: (1) build the extract, (2) validate it, (3) submit it, (4) in parallel run a 'deadline_watch' branch made of DateTimeSensorAsync tasks at 07:00, 07:30 and 07:50 local time, each followed by a task that checks whether 'submit' has succeeded for this run and, if not, escalates (07:00 Slack, 07:30 page primary, 07:50 page manager and submit the last validated extract flagged as provisional).",
+  "schema": {
+    "source": "clinical.bed_census",
+    "target": "government endpoint POST /occupancy/{{ ds }}",
+    "fallback": "previous validated extract flagged provisional"
+  },
+  "expected_behavior": {
+    "schedule": "0 5 * * *",
+    "timezone": "Europe/Paris",
+    "catchup": false,
+    "escalation_times_local": [
+      "07:00",
+      "07:30",
+      "07:50"
+    ],
+    "watch_tasks_trigger_rule": "all_done",
+    "submit_state_lookup": "DagRun.get_task_instance('submit').state",
+    "retries_build": 2,
+    "provisional_flag": true
+  },
+  "edge_cases": [
+    "The census date is the previous local calendar day; the run starting at 05:00 on day D reports day D-1, which equals the data interval start date only when the DAG timezone is local",
+    "Escalation checks must look at the state of 'submit' in the same DAG run and must not be skipped when upstream tasks fail",
+    "The watch branch must not depend on the main branch; otherwise a build failure marks the watch tasks upstream_failed",
+    "If the main submit succeeds after a provisional submission, a corrected final submission must be sent",
+    "DST: 08:00 Paris time is 06:00 or 07:00 UTC depending on the season"
+  ],
+  "common_failure_modes": [
+    "FM6: Watch tasks placed downstream of submit never run when submit fails or hangs",
+    "FM2: Deadlines hard-coded in UTC shift by one hour for half the year",
+    "FM7: Provisional fallback submitted without a flag, indistinguishable from validated data"
+  ]
+}

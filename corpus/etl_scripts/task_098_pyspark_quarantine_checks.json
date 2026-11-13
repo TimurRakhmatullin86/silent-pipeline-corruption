@@ -1,0 +1,100 @@
+{
+  "task_id": "etl_098",
+  "category": "etl_script",
+  "description": "Write a PySpark ETL script for iot_fleet that validates sensor readings and routes failing rows to a quarantine table. Checks: (C1) device_id is not null, (C2) (device_id, reading_ts) is unique, keeping the row with the lowest ingest_seq and quarantining the others, (C3) temperature_c, when present, is between -60 and 85 inclusive; a null temperature is allowed. The script should produce a valid DataFrame and a quarantine DataFrame with a reason column, and compute both from a single cached input so that counts are consistent.",
+  "schema": {
+    "source_columns": {
+      "ingest_seq": "long",
+      "device_id": "string (nullable)",
+      "reading_ts": "timestamp",
+      "temperature_c": "double (nullable)"
+    },
+    "target_columns": {
+      "valid": {
+        "ingest_seq": "long",
+        "device_id": "string",
+        "reading_ts": "timestamp",
+        "temperature_c": "double"
+      },
+      "quarantine": {
+        "ingest_seq": "long",
+        "device_id": "string",
+        "reading_ts": "timestamp",
+        "temperature_c": "double",
+        "reason": "string"
+      }
+    }
+  },
+  "test_data_sample": [
+    {
+      "ingest_seq": 1,
+      "device_id": "d1",
+      "reading_ts": "2025-07-01T00:00:00Z",
+      "temperature_c": 21.5
+    },
+    {
+      "ingest_seq": 2,
+      "device_id": "d1",
+      "reading_ts": "2025-07-01T00:00:00Z",
+      "temperature_c": 21.5
+    },
+    {
+      "ingest_seq": 3,
+      "device_id": null,
+      "reading_ts": "2025-07-01T00:00:00Z",
+      "temperature_c": 20.0
+    },
+    {
+      "ingest_seq": 4,
+      "device_id": "d2",
+      "reading_ts": "2025-07-01T00:00:00Z",
+      "temperature_c": 999.0
+    },
+    {
+      "ingest_seq": 5,
+      "device_id": "d2",
+      "reading_ts": "2025-07-01T00:05:00Z",
+      "temperature_c": null
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "_dataset": "valid",
+      "ingest_seq": 1,
+      "device_id": "d1",
+      "temperature_c": 21.5
+    },
+    {
+      "_dataset": "valid",
+      "ingest_seq": 5,
+      "device_id": "d2",
+      "temperature_c": null
+    },
+    {
+      "_dataset": "quarantine",
+      "ingest_seq": 2,
+      "reason": "C2_duplicate_key"
+    },
+    {
+      "_dataset": "quarantine",
+      "ingest_seq": 3,
+      "reason": "C1_null_device_id"
+    },
+    {
+      "_dataset": "quarantine",
+      "ingest_seq": 4,
+      "reason": "C3_temperature_out_of_range"
+    }
+  ],
+  "edge_cases": [
+    "A filter such as temperature_c BETWEEN -60 AND 85 evaluates to NULL for null temperatures and drops row 5; the condition must be null-aware",
+    "The negated filter for quarantine (NOT valid_condition) is also NULL for null inputs, so rows can disappear from both outputs",
+    "dropDuplicates keeps an arbitrary row; a row_number window ordered by ingest_seq is required for determinism",
+    "valid count + quarantine count must equal the input count (5)"
+  ],
+  "common_failure_modes": [
+    "FM7: Three-valued logic makes rows with nulls vanish from both valid and quarantine outputs",
+    "FM7: Non-deterministic dropDuplicates quarantines different rows across runs",
+    "FM3: Recomputing uncached inputs for the two outputs yields inconsistent counts"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "task_id": "af_074",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for saas_metrics that monitors data freshness of 12 warehouse tables against per-table thresholds stored in a config table, and alerts on breaches. The DAG runs every 15 minutes and should: (1) read active freshness rules (table, timestamp column, max_lag_minutes, severity, business_hours_only), (2) for each rule compute lag = now_utc - max(timestamp column), using dynamic task mapping, (3) collect breaches, (4) send one consolidated alert per severity, (5) suppress repeat alerts for the same table for 2 hours using a state table, (6) send a recovery notice when a previously breached table becomes fresh.",
+  "schema": {
+    "source": "ops.freshness_rules, monitored warehouse tables",
+    "state_table": "ops.freshness_alert_state",
+    "target": "Slack / PagerDuty"
+  },
+  "expected_behavior": {
+    "schedule": "*/15 * * * *",
+    "catchup": false,
+    "max_active_runs": 1,
+    "dagrun_timeout": "0:10:00",
+    "suppression_window_minutes": 120,
+    "empty_table_policy": "breach",
+    "retries": 0
+  },
+  "edge_cases": [
+    "max(timestamp) on an empty table returns NULL; NULL lag must be treated as a breach, not as fresh",
+    "Timestamp columns stored as local time without zone must be converted using the rule's declared timezone before computing lag",
+    "business_hours_only rules must be evaluated in the rule's business timezone, including weekends",
+    "A check query that fails (table missing, permissions) must be reported as a monitoring failure, separately from a freshness breach",
+    "catchup must be False; catching up missed 15-minute runs would send stale alerts"
+  ],
+  "common_failure_modes": [
+    "FM7: NULL lag compared with a threshold evaluates to NULL/False and an empty table is reported fresh",
+    "FM2: Naive local timestamps compared against UTC now produce a constant offset in lag",
+    "FM6: No suppression state causes an alert storm every 15 minutes"
+  ]
+}

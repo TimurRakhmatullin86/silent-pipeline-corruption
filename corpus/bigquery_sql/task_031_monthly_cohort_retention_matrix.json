@@ -1,0 +1,50 @@
+{
+  "task_id": "bq_031",
+  "category": "bigquery_sql",
+  "description": "Build a monthly purchase-retention matrix for the ecommerce marketplace. A user's cohort is the UTC month of their first completed order. For each cohort and each month_offset (0 = cohort month, 1 = next calendar month, ...), count distinct users of the cohort who placed at least one completed order in that month, and compute retention_rate = active_users / cohort_size. Only emit (cohort, offset) pairs with at least one active user. Output columns: cohort_month (DATE), month_offset (INT64), cohort_size (INT64), active_users (INT64), retention_rate (FLOAT64, 4 decimals). Sort by cohort_month, month_offset.",
+  "schema": {
+    "users": {
+      "columns": {
+        "user_id": {"type": "INT64", "description": "Primary key"},
+        "registered_at": {"type": "TIMESTAMP", "description": "Registration time (not used for the cohort)"}
+      }
+    },
+    "orders": {
+      "columns": {
+        "order_id": {"type": "INT64", "description": "Primary key"},
+        "user_id": {"type": "INT64", "description": "Foreign key to users"},
+        "order_ts": {"type": "TIMESTAMP", "description": "UTC order timestamp"},
+        "status": {"type": "STRING", "description": "completed, cancelled"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "orders", "rows": [
+      {"order_id": 1, "user_id": 1, "order_ts": "2025-01-10T10:00:00Z", "status": "completed"},
+      {"order_id": 2, "user_id": 1, "order_ts": "2025-02-10T10:00:00Z", "status": "completed"},
+      {"order_id": 3, "user_id": 1, "order_ts": "2025-03-10T10:00:00Z", "status": "completed"},
+      {"order_id": 4, "user_id": 2, "order_ts": "2025-01-31T22:00:00Z", "status": "completed"},
+      {"order_id": 5, "user_id": 2, "order_ts": "2025-03-01T01:00:00Z", "status": "completed"},
+      {"order_id": 6, "user_id": 3, "order_ts": "2025-01-15T10:00:00Z", "status": "cancelled"},
+      {"order_id": 7, "user_id": 3, "order_ts": "2025-02-05T10:00:00Z", "status": "completed"},
+      {"order_id": 8, "user_id": 3, "order_ts": "2025-02-20T10:00:00Z", "status": "completed"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"cohort_month": "2025-01-01", "month_offset": 0, "cohort_size": 2, "active_users": 2, "retention_rate": 1.0},
+    {"cohort_month": "2025-01-01", "month_offset": 1, "cohort_size": 2, "active_users": 1, "retention_rate": 0.5},
+    {"cohort_month": "2025-01-01", "month_offset": 2, "cohort_size": 2, "active_users": 2, "retention_rate": 1.0},
+    {"cohort_month": "2025-02-01", "month_offset": 0, "cohort_size": 1, "active_users": 1, "retention_rate": 1.0}
+  ],
+  "edge_cases": [
+    "User 3's first order was cancelled, so their cohort is February (first COMPLETED order)",
+    "Two orders in the same month count the user once",
+    "Month offset is a calendar-month difference (Jan 31 to Mar 1 is offset 2), not days / 30",
+    "cohort_size is constant across offsets of a cohort"
+  ],
+  "common_failure_modes": [
+    "FM3: COUNT(*) instead of COUNT(DISTINCT user_id) inflates active_users for repeat buyers",
+    "FM2: Computing the offset as DATE_DIFF(days) / 30 misplaces orders near month boundaries",
+    "FM3: Deriving cohort_size from the offset-level group instead of the cohort makes every retention_rate 1.0"
+  ]
+}

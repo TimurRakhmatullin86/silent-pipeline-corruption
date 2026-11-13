@@ -1,0 +1,47 @@
+{
+  "task_id": "bq_056",
+  "category": "bigquery_sql",
+  "description": "Produce a monthly user lifecycle (growth accounting) report for the content platform. For each calendar month from the first to the last month with activity, classify users: new = active this month and never active in any earlier month; retained = active this month and active in the immediately preceding month; resurrected = active this month, active in some earlier month, but not in the immediately preceding month; churned = active in the immediately preceding month but not this month. Check: active_users = new + retained + resurrected. Output columns: month (DATE), active_users (INT64), new_users (INT64), retained_users (INT64), resurrected_users (INT64), churned_users (INT64). Sort by month.",
+  "schema": {
+    "user_activity": {
+      "columns": {
+        "user_id": {"type": "INT64", "description": "Foreign key to users"},
+        "activity_date": {"type": "DATE", "description": "UTC date with at least one qualifying action; several rows per user per month possible"}
+      }
+    },
+    "users": {
+      "columns": {
+        "user_id": {"type": "INT64", "description": "Primary key"},
+        "signup_date": {"type": "DATE", "description": "Signup date; a user may sign up and be first active in a later month"}
+      }
+    }
+  },
+  "test_data_sample": [
+    {"table": "user_activity", "rows": [
+      {"user_id": 1, "activity_date": "2025-01-10"},
+      {"user_id": 1, "activity_date": "2025-02-11"},
+      {"user_id": 1, "activity_date": "2025-03-12"},
+      {"user_id": 2, "activity_date": "2025-01-15"},
+      {"user_id": 2, "activity_date": "2025-03-02"},
+      {"user_id": 3, "activity_date": "2025-02-20"},
+      {"user_id": 4, "activity_date": "2025-01-31"},
+      {"user_id": 4, "activity_date": "2025-01-05"}
+    ]}
+  ],
+  "expected_output_sample": [
+    {"month": "2025-01-01", "active_users": 3, "new_users": 3, "retained_users": 0, "resurrected_users": 0, "churned_users": 0},
+    {"month": "2025-02-01", "active_users": 2, "new_users": 1, "retained_users": 1, "resurrected_users": 0, "churned_users": 2},
+    {"month": "2025-03-01", "active_users": 2, "new_users": 0, "retained_users": 1, "resurrected_users": 1, "churned_users": 1}
+  ],
+  "edge_cases": [
+    "User 2 skips February and returns in March: resurrected, not new and not retained",
+    "User 4 churns in February and must not be counted as churned again in March",
+    "Churned users have no activity row in the month they churn, so they must be derived from the previous month",
+    "'New' is based on first activity, not on signup_date"
+  ],
+  "common_failure_modes": [
+    "FM2: LAG over a user's active months treats any earlier month as 'previous', classifying user 2 as retained in March",
+    "FM1: Churn computed from the current month's activity rows is always 0; it needs an anti-join against the next month",
+    "FM3: Counting activity rows instead of distinct users per month"
+  ]
+}

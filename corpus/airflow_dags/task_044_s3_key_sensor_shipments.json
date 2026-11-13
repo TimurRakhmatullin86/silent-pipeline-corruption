@@ -1,0 +1,35 @@
+{
+  "task_id": "af_044",
+  "category": "airflow_dag",
+  "description": "Create an Airflow 2.x DAG for logistics_co that ingests hourly shipment scan files. The DAG should: (1) use an S3KeySensor in deferrable mode to wait for a _SUCCESS marker under the hourly partition prefix, (2) copy the partition's Parquet files into a Redshift staging table with S3ToRedshiftOperator, (3) run a MERGE from staging into the shipments fact table keyed on scan_id, (4) truncate staging, (5) record row counts in an audit table. The DAG runs hourly at minute 15. The sensor must give up after 45 minutes and mark the run failed so that the next hourly run is not blocked. Only one run may be active at a time.",
+  "schema": {
+    "source": "s3://logistics-co-landing/scans/dt={{ ds }}/hr={{ logical_date.strftime('%H') }}/_SUCCESS",
+    "staging_table": "staging.shipment_scans_stg",
+    "target": "analytics.fct_shipment_scans",
+    "audit_table": "ops.load_audit"
+  },
+  "expected_behavior": {
+    "schedule": "15 * * * *",
+    "catchup": false,
+    "max_active_runs": 1,
+    "sensor_deferrable": true,
+    "sensor_timeout": 2700,
+    "sensor_poke_interval": 60,
+    "sensor_soft_fail": false,
+    "retries": 2,
+    "retry_delay": "0:05:00",
+    "merge_key": "scan_id"
+  },
+  "edge_cases": [
+    "Sensor must wait for the _SUCCESS marker, not the first data file, to avoid loading a partially written partition",
+    "Hour partition must be derived from logical_date (data interval start), not from the wall clock at execution time",
+    "Staging truncate must run even if the MERGE fails (trigger_rule='all_done') so the next run does not double-load",
+    "Empty partition (marker present, zero data files) must produce an audit row with row_count=0 instead of an error",
+    "Sensor timeout must fail the task rather than be retried by the task-level retries setting"
+  ],
+  "common_failure_modes": [
+    "FM6: Sensor waits on a wildcard data key and fires while the upstream writer is still uploading files",
+    "FM2: Partition path built from datetime.utcnow() loads the wrong hour when the run is delayed or re-run",
+    "FM6: retries on the sensor multiplies the effective timeout to 3x45 minutes and blocks max_active_runs"
+  ]
+}

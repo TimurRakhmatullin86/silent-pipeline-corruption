@@ -1,0 +1,29 @@
+{
+  "task_id": "af_056",
+  "category": "airflow_dag",
+  "description": "Create a pair of Airflow 2.4+ DAGs for ecom_market using data-aware scheduling. Producer DAGs 'orders_ingest' and 'inventory_ingest' each end with a task that declares outlets=[Dataset(...)] for their output tables. The consumer DAG 'stock_availability' must be scheduled on both datasets and run only after both have been updated since its last run. The consumer should: (1) read the triggering dataset events to determine the min and max source data intervals, (2) recompute availability for that range, (3) publish its own Dataset for downstream consumers.",
+  "schema": {
+    "source": "Dataset('warehouse://ecom_market/staging/orders'), Dataset('warehouse://ecom_market/staging/inventory')",
+    "target": "Dataset('warehouse://ecom_market/analytics/stock_availability')"
+  },
+  "expected_behavior": {
+    "consumer_schedule": "[orders_dataset, inventory_dataset]",
+    "catchup": false,
+    "trigger_semantics": "AND - runs once both datasets have at least one new event",
+    "range_source": "triggering_dataset_events in task context",
+    "max_active_runs": 1,
+    "retries": 2
+  },
+  "edge_cases": [
+    "A dataset-triggered run has no meaningful data interval; the date range must come from triggering_dataset_events, not from ds",
+    "If orders_ingest runs three times before inventory_ingest runs once, the consumer runs once and must process all three orders updates",
+    "Outlet must be attached to the final publishing task; attaching it to an early task emits the event before data is ready",
+    "Dataset events are emitted only on task success; a producer that skips its final task does not trigger the consumer",
+    "Dataset URIs must match exactly between producer and consumer (case and trailing slash)"
+  ],
+  "common_failure_modes": [
+    "FM6: Consumer uses {{ ds }} for filtering and processes only the trigger day, missing accumulated upstream updates",
+    "FM6: Outlet declared on the extract task, so the consumer starts before the producer's load finishes",
+    "FM2: Using only the latest dataset event's interval drops earlier queued intervals"
+  ]
+}

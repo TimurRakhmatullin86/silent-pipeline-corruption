@@ -1,0 +1,33 @@
+{
+  "task_id": "af_077",
+  "category": "airflow_dag",
+  "description": "Create an Airflow DAG for retail_chain that loads a star schema using TaskGroups. Group 'load_dimensions' loads dim_store, dim_product, dim_customer and dim_date in parallel; group 'load_facts' loads fct_sales and fct_returns in parallel, and may start only after all dimensions have loaded; a final group 'quality_checks' runs referential-integrity checks for each fact. fct_returns additionally depends on fct_sales because returns reference sales line ids. Use pools to cap warehouse concurrency at 3.",
+  "schema": {
+    "source": "staging.stores, staging.products, staging.customers, staging.sales_lines, staging.return_lines",
+    "target": "dw.dim_store, dw.dim_product, dw.dim_customer, dw.dim_date, dw.fct_sales, dw.fct_returns"
+  },
+  "expected_behavior": {
+    "schedule": "0 4 * * *",
+    "catchup": false,
+    "pool": "warehouse",
+    "pool_slots": 3,
+    "dependencies": [
+      "load_dimensions >> load_facts >> quality_checks",
+      "fct_sales >> fct_returns"
+    ],
+    "surrogate_key_lookup": "LEFT JOIN to dimension with default -1 unknown member",
+    "retries": 2
+  },
+  "edge_cases": [
+    "Fact rows whose natural key has no dimension match must map to the unknown member (-1), not be dropped by an INNER JOIN",
+    "fct_returns must wait for fct_sales even though both are in the same TaskGroup",
+    "dim_product is SCD2: the fact must look up the surrogate key valid at the sale timestamp",
+    "Referential-integrity check must fail the DAG if the share of unknown-member rows exceeds 0.5%",
+    "Task ids inside groups are prefixed with the group id; cross-group references must use the full id"
+  ],
+  "common_failure_modes": [
+    "FM1: INNER JOIN to dimensions drops sales for products not yet in dim_product",
+    "FM6: Returns and sales loaded in parallel, returns lookup finds no sales line for same-day returns",
+    "FM1: Joining to the SCD2 product dimension without a validity window multiplies fact rows per product version"
+  ]
+}

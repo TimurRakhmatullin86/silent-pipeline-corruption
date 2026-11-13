@@ -1,0 +1,69 @@
+{
+  "task_id": "etl_110",
+  "category": "etl_script",
+  "description": "Write a Python ETL script (pandas + pyarrow) for adtech_platform that converts JSON Lines event files to Parquet when the JSON structure drifts between lines. The script should: (1) parse line by line, writing malformed lines with their line number to a reject file, (2) cast user_id to string, since it arrives as either a number or a string, (3) flatten props into props_page (string) and props_dur_ms (nullable Int64), (4) keep tags as list<string>, preserving the difference between an empty list and null, (5) include optional fields listed in the target schema (referrer) as null when absent, and collect any unexpected field names into a drift report instead of silently dropping or adding columns.",
+  "schema": {
+    "source_columns": {
+      "event_id": "string",
+      "user_id": "int or string",
+      "props": "object {page, dur_ms} (nullable)",
+      "tags": "array of string (nullable)",
+      "referrer": "string (optional)"
+    },
+    "target_columns": {
+      "event_id": "string",
+      "user_id": "string",
+      "props_page": "string (nullable)",
+      "props_dur_ms": "Int64 (nullable)",
+      "tags": "list<string> (nullable)",
+      "referrer": "string (nullable)"
+    }
+  },
+  "test_data_sample": [
+    "{\"event_id\":\"e1\",\"user_id\":42,\"props\":{\"page\":\"/home\",\"dur_ms\":1200},\"tags\":[\"a\",\"b\"]}",
+    "{\"event_id\":\"e2\",\"user_id\":\"43\",\"props\":{\"page\":\"/cart\"},\"tags\":[]}",
+    "{\"event_id\":\"e3\",\"user_id\":44,\"props\":null,\"tags\":null,\"referrer\":\"ads\",\"ab_bucket\":\"B\"}",
+    "{\"event_id\":\"e4\",\"user_id\":45,\"props\":{\"page\":\"/x\""
+  ],
+  "expected_output_sample": [
+    {
+      "event_id": "e1",
+      "user_id": "42",
+      "props_page": "/home",
+      "props_dur_ms": 1200,
+      "tags": [
+        "a",
+        "b"
+      ],
+      "referrer": null
+    },
+    {
+      "event_id": "e2",
+      "user_id": "43",
+      "props_page": "/cart",
+      "props_dur_ms": null,
+      "tags": [],
+      "referrer": null
+    },
+    {
+      "event_id": "e3",
+      "user_id": "44",
+      "props_page": null,
+      "props_dur_ms": null,
+      "tags": null,
+      "referrer": "ads"
+    }
+  ],
+  "edge_cases": [
+    "Line 4 is truncated JSON: it goes to rejects with line number 4 and the other three lines are still converted",
+    "user_id mixes int and str; left as object dtype, pyarrow raises or writes inconsistent types across files",
+    "props_dur_ms has missing values: a plain int column becomes float (1200.0); use nullable Int64",
+    "'ab_bucket' on line 3 is not in the target schema and must be reported in the drift report",
+    "tags [] (e2) and tags null (e3) must remain distinguishable"
+  ],
+  "common_failure_modes": [
+    "FM5: Schema inferred from the first lines drops or mistypes fields that appear later",
+    "FM5: Mixed-type columns written with different Parquet types per file, breaking downstream readers",
+    "FM7: Malformed lines skipped silently with no reject record"
+  ]
+}

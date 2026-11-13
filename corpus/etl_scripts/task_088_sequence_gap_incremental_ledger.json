@@ -1,0 +1,74 @@
+{
+  "task_id": "etl_088",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for fintech_app that incrementally loads ledger entries identified by a gapless sequence number entry_seq. The script should: (1) read last_loaded_seq from state (1000 in the sample), (2) read the batch file and keep entries with entry_seq > last_loaded_seq, (3) sort by entry_seq and load only the contiguous run starting at last_loaded_seq + 1; if a gap is found, stop before the gap, (4) parse amount strings to Decimal with 2 places (no float), (5) append the contiguous entries to the target, set last_loaded_seq to the last contiguous value, and write a gap report listing missing sequence numbers so the next run can retry.",
+  "schema": {
+    "source_columns": {
+      "entry_seq": "int",
+      "account_id": "string",
+      "amount": "string (decimal, 2 places)",
+      "direction": "string (DR, CR)"
+    },
+    "target_columns": {
+      "entry_seq": "int64",
+      "account_id": "string",
+      "signed_amount": "decimal(18,2) (DR positive, CR negative)"
+    }
+  },
+  "test_data_sample": [
+    {
+      "entry_seq": 1004,
+      "account_id": "acc_9",
+      "amount": "5.00",
+      "direction": "DR"
+    },
+    {
+      "entry_seq": 1001,
+      "account_id": "acc_1",
+      "amount": "10.10",
+      "direction": "DR"
+    },
+    {
+      "entry_seq": 1000,
+      "account_id": "acc_1",
+      "amount": "99.99",
+      "direction": "DR"
+    },
+    {
+      "entry_seq": 1002,
+      "account_id": "acc_2",
+      "amount": "10.10",
+      "direction": "CR"
+    },
+    {
+      "entry_seq": 1005,
+      "account_id": "acc_9",
+      "amount": "5.00",
+      "direction": "CR"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "entry_seq": 1001,
+      "account_id": "acc_1",
+      "signed_amount": "10.10"
+    },
+    {
+      "entry_seq": 1002,
+      "account_id": "acc_2",
+      "signed_amount": "-10.10"
+    }
+  ],
+  "edge_cases": [
+    "Sequence 1003 is missing: entries 1004 and 1005 must not be loaded in this run, and the new last_loaded_seq is 1002",
+    "Entry 1000 was already loaded and must be ignored",
+    "The batch is not sorted; contiguity must be checked after sorting",
+    "Amounts must stay exact decimals: 10.10 parsed as float and summed produces drift",
+    "The gap report must contain [1003]"
+  ],
+  "common_failure_modes": [
+    "FM2: Advancing the watermark to max(entry_seq) = 1005 permanently skips entry 1003 when it arrives later",
+    "FM4: Float parsing of monetary amounts breaks exact debit/credit balancing",
+    "FM7: No gap detection or gap report"
+  ]
+}

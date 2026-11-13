@@ -1,0 +1,77 @@
+{
+  "task_id": "etl_109",
+  "category": "etl_script",
+  "description": "Write a pandas ETL script for health_portal that converts a member CSV export to Parquet with an explicit schema. The script should: (1) read every column as string first (dtype=str, keep_default_na=False), (2) keep zip_code and member_no as strings to preserve leading zeros, (3) cast account_ref to int64 without passing through float, (4) map is_active 'Y'/'N' to boolean, (5) convert empty strings to null for nullable columns only, (6) parse signup_date (YYYY-MM-DD) to date and balance to decimal(12,2), (7) write Parquet with an explicit pyarrow schema.",
+  "schema": {
+    "source_columns": {
+      "member_no": "string",
+      "last_name": "string",
+      "zip_code": "string",
+      "account_ref": "string (integer digits)",
+      "is_active": "string (Y, N)",
+      "signup_date": "string YYYY-MM-DD",
+      "balance": "string (decimal, may be empty)"
+    },
+    "target_columns": {
+      "member_no": "string",
+      "last_name": "string",
+      "zip_code": "string",
+      "account_ref": "int64",
+      "is_active": "bool",
+      "signup_date": "date32",
+      "balance": "decimal(12,2) (nullable)"
+    }
+  },
+  "test_data_sample": [
+    {
+      "member_no": "000451",
+      "last_name": "Okafor",
+      "zip_code": "02134",
+      "account_ref": "9007199254740993",
+      "is_active": "Y",
+      "signup_date": "2025-01-31",
+      "balance": "1234.50"
+    },
+    {
+      "member_no": "000452",
+      "last_name": "NA",
+      "zip_code": "10001",
+      "account_ref": "42",
+      "is_active": "N",
+      "signup_date": "2024-02-29",
+      "balance": ""
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "member_no": "000451",
+      "last_name": "Okafor",
+      "zip_code": "02134",
+      "account_ref": 9007199254740993,
+      "is_active": true,
+      "signup_date": "2025-01-31",
+      "balance": "1234.50"
+    },
+    {
+      "member_no": "000452",
+      "last_name": "NA",
+      "zip_code": "10001",
+      "account_ref": 42,
+      "is_active": false,
+      "signup_date": "2024-02-29",
+      "balance": null
+    }
+  ],
+  "edge_cases": [
+    "Type inference turns zip_code '02134' into the integer 2134 and member_no '000451' into 451",
+    "The last name 'NA' is a real surname; pandas' default NA values convert it to NaN",
+    "9007199254740993 is not representable as float64 (it becomes ...992); the cast must be string to int64 directly",
+    "Empty balance is null, not 0.00",
+    "is_active 'N' must map to False; bool('N') is True in Python"
+  ],
+  "common_failure_modes": [
+    "FM5: Inferred dtypes strip leading zeros and corrupt large integers through float conversion",
+    "FM7: Default NA parsing nulls out legitimate values such as 'NA'",
+    "FM4: Truthiness-based boolean cast maps every non-empty string to True"
+  ]
+}

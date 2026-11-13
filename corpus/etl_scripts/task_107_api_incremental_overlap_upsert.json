@@ -1,0 +1,75 @@
+{
+  "task_id": "etl_107",
+  "category": "etl_script",
+  "description": "Write a Python ETL script (requests + pandas) for fintech_app that incrementally syncs invoices from an API using updated_since. The script should: (1) read the last watermark (2025-03-01T10:05:00Z in the sample), (2) request invoices with updated_since = watermark minus a 5-minute overlap to tolerate clock skew and in-flight transactions, (3) for each invoice id keep the record with the greatest updated_at from the response, (4) upsert into the target on id, never replacing a target row with an older record, (5) parse amount strings such as '1,200.50' into Decimal, (6) set the new watermark to the maximum updated_at seen. In the sample, rows are tagged with _dataset = target or api_response.",
+  "schema": {
+    "source_columns": {
+      "id": "string",
+      "status": "string",
+      "amount": "string (e.g. 1,200.50)",
+      "updated_at": "string (ISO 8601)"
+    },
+    "target_columns": {
+      "id": "string",
+      "status": "string",
+      "amount": "decimal(12,2)",
+      "updated_at": "datetime64[ns, UTC]"
+    }
+  },
+  "test_data_sample": [
+    {
+      "_dataset": "target",
+      "id": "inv1",
+      "status": "open",
+      "amount": "300.00",
+      "updated_at": "2025-03-01T10:00:00Z"
+    },
+    {
+      "_dataset": "api_response",
+      "id": "inv1",
+      "status": "open",
+      "amount": "300.00",
+      "updated_at": "2025-03-01T10:00:00Z"
+    },
+    {
+      "_dataset": "api_response",
+      "id": "inv1",
+      "status": "paid",
+      "amount": "300.00",
+      "updated_at": "2025-03-01T10:07:00Z"
+    },
+    {
+      "_dataset": "api_response",
+      "id": "inv2",
+      "status": "open",
+      "amount": "1,200.50",
+      "updated_at": "2025-03-01T10:08:00Z"
+    }
+  ],
+  "expected_output_sample": [
+    {
+      "id": "inv1",
+      "status": "paid",
+      "amount": "300.00",
+      "updated_at": "2025-03-01T10:07:00Z"
+    },
+    {
+      "id": "inv2",
+      "status": "open",
+      "amount": "1200.50",
+      "updated_at": "2025-03-01T10:08:00Z"
+    }
+  ],
+  "edge_cases": [
+    "The overlap re-delivers inv1 as of 10:00, which already exists; an append-only load would duplicate it",
+    "inv1 appears twice in the response; only the 10:07 'paid' version survives",
+    "'1,200.50' contains a thousands separator and must become 1200.50, not 1.2 or NaN",
+    "New watermark is 2025-03-01T10:08:00Z (max updated_at seen), not the request time",
+    "An empty response leaves the watermark unchanged"
+  ],
+  "common_failure_modes": [
+    "FM2: No overlap window, so records committed late with earlier updated_at values are missed forever",
+    "FM1: Append instead of upsert duplicates re-delivered records",
+    "FM4: Thousands separators break numeric parsing"
+  ]
+}
